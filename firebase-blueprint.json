@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Represents a citizen or authority user in the Civic Platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["citizen", "authority"] },
+        "points": { "type": "number" },
+        "trust_score": { "type": "number" },
+        "badges": { "type": "array" },
+        "completed_reports": { "type": "number" },
+        "validations_count": { "type": "number" },
+        "area": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Issue": {
+      "title": "Civic Issue",
+      "description": "Represents a reported community hazard, pothole, or infrastructure complaint",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string", "enum": ["road", "garbage", "water", "streetlight", "safety"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["reported", "ai_verified", "community_verified", "assigned", "in_progress", "resolved", "closed"] },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "reportedBy": { "type": "string" },
+        "reportedByName": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "department": { "type": "string" },
+        "upvotes": { "type": "number" },
+        "downvotes": { "type": "number" },
+        "slaDays": { "type": "number" },
+        "escalated": { "type": "boolean" }
+      },
+      "required": ["id", "category", "title", "description", "status", "reportedBy"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile state"
+    },
+    "issues/{issueId}": {
+      "schema": "Issue",
+      "description": "Public civic hazard database entries"
+    }
+  }
+}
