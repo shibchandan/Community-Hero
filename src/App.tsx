@@ -17,7 +17,8 @@ import GamificationLeaderboard from './components/GamificationLeaderboard';
 import SlaDashboard from './components/SlaDashboard';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3, 
-  Sun, Moon, Users, UserCheck, RefreshCw, Layers, LogOut, Loader2, LogIn 
+  Sun, Moon, Users, UserCheck, RefreshCw, Layers, LogOut, Loader2, LogIn,
+  Menu, X
 } from 'lucide-react';
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
   const [fbUser, setFbUser] = useState<any>(null);
   const [fbLoading, setFbLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Monitor Firebase Auth changes and sync with Express database
   useEffect(() => {
@@ -393,9 +395,165 @@ export default function App() {
         )}
       </div>
 
+      {/* ------------------ MOBILE DRAWER MENU ------------------ */}
+      <div 
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
+          mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        {/* Backdrop overlay */}
+        <div 
+          className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs" 
+          onClick={() => setMobileMenuOpen(false)}
+        />
+        
+        {/* Drawer container */}
+        <div 
+          className={`absolute inset-y-0 left-0 w-72 p-6 shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-out transform ${
+            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          } ${
+            theme === 'dark' 
+              ? 'bg-slate-950/95 border-r border-white/10 text-white' 
+              : 'bg-white border-r border-slate-200 text-slate-900'
+          }`}
+        >
+          <div>
+            <div className="flex items-center justify-between pb-6 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className={`text-md font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Community Hero</h2>
+                  <p className="text-[9px] text-blue-500 font-semibold tracking-widest uppercase">Civic Engine</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                  theme === 'dark' ? 'hover:bg-white/10 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'
+                }`}
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="flex flex-col gap-1.5 mt-6" role="tablist" aria-label="Mobile Civic Navigation Tabs">
+              <button
+                role="tab"
+                aria-selected={activeTab === 'map'}
+                onClick={() => { setActiveTab('map'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'map'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Map className="w-4 h-4" /> Explore Radar
+              </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === 'feed'}
+                onClick={() => { setActiveTab('feed'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'feed'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <FileText className="w-4 h-4" /> Civic Feed
+              </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === 'report'}
+                onClick={() => { setActiveTab('report'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'report'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" /> Report Hazard
+              </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === 'authority'}
+                onClick={() => { setActiveTab('authority'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'authority'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Shield className="w-4 h-4" /> SLA Dispatch
+              </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === 'leaderboard'}
+                onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'leaderboard'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Trophy className="w-4 h-4" /> Hero Center
+              </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === 'dashboard'}
+                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
+                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
+                  activeTab === 'dashboard'
+                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" /> SLA Analytics
+              </button>
+            </nav>
+          </div>
+
+          <div className="pt-6 border-t border-white/10">
+            {currentUser && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-indigo-400" />
+                  <span className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{currentUser.name}</span>
+                </div>
+                <button
+                  onClick={() => { handleToggleRole(); setMobileMenuOpen(false); }}
+                  className="w-full text-[10px] font-black uppercase tracking-wider py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-500/20"
+                >
+                  <Layers className="w-3.5 h-3.5" /> Toggle Identity
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ------------------ NAVIGATION HEADER ------------------ */}
       <header className="relative z-10 max-w-7xl mx-auto px-4 pt-6">
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 py-5 px-6 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl shadow-xl">
+        <div className="flex justify-between items-center py-5 px-6 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl shadow-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <Sparkles className="w-6 h-6 text-white" />
@@ -410,14 +568,23 @@ export default function App() {
             </div>
           </div>
 
-          {/* Navigation tabs with full WAI-ARIA tablist semantics */}
-          <nav role="tablist" aria-label="Civic Navigation Tabs" className="flex flex-wrap gap-2 w-full xl:w-auto">
+          {/* Hamburger Menu Trigger for Mobile */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="xl:hidden p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+            aria-label="Open Navigation Drawer"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          {/* Navigation tabs with full WAI-ARIA tablist semantics (Hidden on mobile) */}
+          <nav role="tablist" aria-label="Civic Navigation Tabs" className="hidden xl:flex gap-2">
             <button
               role="tab"
               aria-selected={activeTab === 'map'}
               aria-label="Explore Radar Map Tab"
               onClick={() => setActiveTab('map')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'map'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -430,7 +597,7 @@ export default function App() {
               aria-selected={activeTab === 'feed'}
               aria-label="Civic Incident Feed Tab"
               onClick={() => setActiveTab('feed')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'feed'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -443,7 +610,7 @@ export default function App() {
               aria-selected={activeTab === 'report'}
               aria-label="Report New Hazard Tab"
               onClick={() => setActiveTab('report')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'report'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -456,7 +623,7 @@ export default function App() {
               aria-selected={activeTab === 'authority'}
               aria-label="SLA Dispatch Console Tab"
               onClick={() => setActiveTab('authority')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'authority'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -469,7 +636,7 @@ export default function App() {
               aria-selected={activeTab === 'leaderboard'}
               aria-label="Hero Leaderboard Center Tab"
               onClick={() => setActiveTab('leaderboard')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'leaderboard'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -482,7 +649,7 @@ export default function App() {
               aria-selected={activeTab === 'dashboard'}
               aria-label="SLA Analytics Dashboard Tab"
               onClick={() => setActiveTab('dashboard')}
-              className={`flex-1 xl:flex-initial text-xs font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'dashboard'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                   : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
@@ -570,7 +737,7 @@ export default function App() {
                   {activeIssue ? (
                     <div className="p-5 bento-card sticky top-6 space-y-4">
                       <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
-                      <img src={activeIssue.mediaUrl} alt={activeIssue.title} className="w-full aspect-video rounded-xl object-cover border border-white/10" />
+                      <img src={activeIssue.mediaUrl} alt={activeIssue.title} referrerPolicy="no-referrer" className="w-full aspect-video rounded-xl object-cover border border-white/10" />
                       <div>
                         <h3 className="text-sm font-bold text-white leading-tight">{activeIssue.title}</h3>
                         <p className="text-[11px] text-slate-400 mt-1">Landmark: {activeIssue.location.address}</p>

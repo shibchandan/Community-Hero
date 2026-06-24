@@ -136,3 +136,29 @@
 .animate-sonar-ripple {
   animation: sonarRipple 4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
 }
+
+/* Custom Leaflet Map and Popup Styling */
+.custom-leaflet-popup .leaflet-popup-content-wrapper {
+  background: rgba(10, 12, 22, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  padding: 4px !important;
+}
+
+.custom-leaflet-popup .leaflet-popup-tip {
+  background: rgba(10, 12, 22, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.custom-leaflet-popup .leaflet-popup-content {
+  margin: 8px 10px !important;
+}
+
+/* Prevent default leaflet pin animation glitches */
+.custom-map-pin, .user-map-pin {
+  background: none !important;
+  border: none !important;
+}
+

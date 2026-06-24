@@ -232,7 +232,7 @@ export default function CommunityFeed({
                 {/* Proof of Resolution (if available) */}
                 {issue.resolvedAt && (
                   <div className="mt-4 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col md:flex-row gap-3 items-start md:items-center">
-                    <img src={issue.resolutionProofUrl || ''} alt="Proof" className="w-20 aspect-square rounded-lg object-cover border border-emerald-500/20" />
+                    <img src={issue.resolutionProofUrl || ''} alt="Proof" referrerPolicy="no-referrer" className="w-20 aspect-square rounded-lg object-cover border border-emerald-500/20" />
                     <div className="flex-1 space-y-1">
                       <h4 className="text-[11px] font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" />

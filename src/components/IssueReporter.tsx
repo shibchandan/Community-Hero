@@ -55,7 +55,50 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('850 Valencia St, San Francisco, CA 94110');
 
+  // Both Location Options (Auto GPS vs. Manual)
+  const [locationMode, setLocationMode] = useState<'auto' | 'manual'>('manual');
+  const [lat, setLat] = useState<number>(37.7649);
+  const [lng, setLng] = useState<number>(-122.4194);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const enableAutoLocation = () => {
+    setLocationMode('auto');
+    if (!navigator.geolocation) {
+      setGeoError("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setLat(latitude);
+        setLng(longitude);
+        setAddress(`Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        setGeoLoading(false);
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        let errorMsg = "Unable to fetch location.";
+        if (err.code === 1) {
+          errorMsg = "Location permission denied. Please open the app in a new tab using the icon at the top-right of your preview, or grant location permissions in your browser's address bar.";
+        } else if (err.code === 2) {
+          errorMsg = "Device location unavailable. Please check your system location settings or try a different device.";
+        } else if (err.code === 3) {
+          errorMsg = "Location request timed out. Please try again or switch to the 'Manual Landmark' option.";
+        } else {
+          errorMsg = "Browser blocked location within the iframe preview. Open in a new tab to bypass.";
+        }
+        setGeoError(errorMsg);
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   // Simulate converting image to base64 for the custom uploads
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,11 +157,19 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
         imagePayload = customImageBase64;
       }
 
-      // We assign randomized GPS offsets around Mission/SOMA center
-      const baseLat = 37.7649;
-      const baseLng = -122.4194;
-      const randomOffsetLat = (Math.random() - 0.5) * 0.02;
-      const randomOffsetLng = (Math.random() - 0.5) * 0.025;
+      // Determine final coordinates based on locationMode
+      let finalLat = lat;
+      let finalLng = lng;
+
+      if (locationMode === 'manual') {
+        // If they have manual but left it at defaults, randomize slightly so it plots nicely in SF SOMA/Mission
+        if (lat === 37.7649 && lng === -122.4194) {
+          const randomOffsetLat = (Math.random() - 0.5) * 0.015;
+          const randomOffsetLng = (Math.random() - 0.5) * 0.015;
+          finalLat = 37.7649 + randomOffsetLat;
+          finalLng = -122.4194 + randomOffsetLng;
+        }
+      }
 
       const payload = {
         description,
@@ -126,8 +177,8 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
         severity,
         image: imagePayload,
         location: {
-          lat: baseLat + randomOffsetLat,
-          lng: baseLng + randomOffsetLng,
+          lat: finalLat,
+          lng: finalLng,
           address: address,
           area: activeArea || 'Mission District'
         }
@@ -225,7 +276,7 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
                       : 'border-transparent hover:border-white/20'
                   }`}
                 >
-                  <img src={preset.url} alt={preset.name} className="w-full h-full object-cover" />
+                  <img src={preset.url} alt={preset.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent flex flex-col justify-end p-2.5">
                     <span className="text-[10px] font-bold text-white uppercase tracking-wider">{preset.name}</span>
                     <span className="text-[8px] text-gray-300 line-clamp-1 mt-0.5">{preset.description}</span>
@@ -268,7 +319,7 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
               </div>
             ) : (
               <div className="relative w-full aspect-video md:aspect-[2.5/1] rounded-xl overflow-hidden border border-white/10 bg-black">
-                <img src={customImageBase64} alt="Custom hazard" className="w-full h-full object-cover" />
+                <img src={customImageBase64} alt="Custom hazard" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 <div className="absolute top-2 right-2 px-2.5 py-1 rounded bg-black/60 text-[10px] text-white backdrop-blur-md">
                   ✓ Custom Image Loaded
                 </div>
@@ -279,7 +330,7 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
           {/* Issue Description Area */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-              2. Describe the Issue & Exact Location Details
+              2. Describe the Issue Details
             </label>
             <textarea
               value={description}
@@ -290,37 +341,136 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
             />
           </div>
 
-          {/* Advanced Location / Override Toggle */}
+          {/* Geolocation & Location Choice Section */}
+          <div className="space-y-3">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+              3. Set Hazard Location (Device GPS vs Manual Landmark)
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Auto GPS Option */}
+              <button
+                type="button"
+                onClick={enableAutoLocation}
+                className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between h-24 cursor-pointer ${
+                  locationMode === 'auto'
+                    ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-md shadow-indigo-500/5'
+                    : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-white">
+                    <MapPin className={`w-4 h-4 ${locationMode === 'auto' ? 'text-indigo-400 animate-pulse' : 'text-gray-400'}`} />
+                    Auto-Detect GPS
+                  </span>
+                  {geoLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-300">
+                    {locationMode === 'auto' && !geoLoading ? `Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}` : "Uses your browser's actual real-time device location."}
+                  </p>
+                </div>
+              </button>
+
+              {/* Manual/Simulated option */}
+              <button
+                type="button"
+                onClick={() => {
+                  setLocationMode('manual');
+                  setLat(37.7649);
+                  setLng(-122.4194);
+                  setAddress('850 Valencia St, San Francisco, CA 94110');
+                  setGeoError(null);
+                }}
+                className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between h-24 cursor-pointer ${
+                  locationMode === 'manual'
+                    ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-md shadow-indigo-500/5'
+                    : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                }`}
+              >
+                <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 text-white">
+                  <Building className="w-4 h-4 text-gray-400" />
+                  Manual Landmark
+                </span>
+                <p className="text-[10px] text-gray-300 truncate">
+                  {locationMode === 'manual' ? address : 'Enter custom address & coordinates manually.'}
+                </p>
+              </button>
+            </div>
+
+            {/* Geolocation Warning/Info Banner */}
+            {geoError && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] leading-relaxed flex items-start gap-2.5 animate-fadeIn">
+                <span className="text-sm mt-0.5">⚠️</span>
+                <div>
+                  <p className="font-bold uppercase tracking-wider text-[10px] text-amber-400 mb-0.5">Location Access Notice</p>
+                  <p>{geoError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Location Input Fields (visible in both but tailored) */}
+            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3 animate-fadeIn text-gray-300">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Landmark / Street Address</label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={locationMode === 'auto' ? "E.g. Near My Current Position" : "E.g. 850 Valencia St, San Francisco, CA"}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">
+                    Latitude {locationMode === 'auto' ? '(GPS Auto)' : '(Manual)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={lat}
+                    disabled={locationMode === 'auto'}
+                    onChange={(e) => setLat(parseFloat(e.target.value) || 37.7649)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">
+                    Longitude {locationMode === 'auto' ? '(GPS Auto)' : '(Manual)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={lng}
+                    disabled={locationMode === 'auto'}
+                    onChange={(e) => setLng(parseFloat(e.target.value) || -122.4194)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Advanced Category / Override Toggle */}
           <div className="border-t border-white/10 pt-4">
             <button
               type="button"
               onClick={() => setShowOverrideForm(!showOverrideForm)}
               className="text-xs text-indigo-400 font-medium hover:underline flex items-center gap-1"
             >
-              ⚙️ {showOverrideForm ? 'Hide manual GPS/Category overrides' : 'Show manual GPS/Category overrides (Optional)'}
+              ⚙️ {showOverrideForm ? 'Hide advanced classification overrides' : 'Show advanced classification overrides (Optional)'}
             </button>
 
             {showOverrideForm && (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10 animate-fadeIn text-gray-300">
                 
-                {/* Manual Address */}
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 font-sans">Simulated Landmark Address</label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white"
-                  />
-                </div>
-
                 {/* Back-up Category */}
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 font-sans">Fallback Category</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as IssueCategory)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white font-sans"
                   >
                     <option value="road">Road Damage (potholes)</option>
                     <option value="garbage">Garbage Overflow</option>
@@ -336,7 +486,7 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
                   <select
                     value={severity}
                     onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950 text-white font-sans"
                   >
                     <option value="low">Low Impact</option>
                     <option value="medium">Medium Hazard</option>
@@ -344,9 +494,9 @@ export default function IssueReporter({ onIssueReported, activeArea }: IssueRepo
                   </select>
                 </div>
 
-                <div className="flex items-center text-[10px] text-gray-400 gap-1.5 md:col-span-2 mt-1">
+                <div className="flex items-center text-[10px] text-gray-400 gap-1.5 md:col-span-2 mt-1 font-sans">
                   <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                  Your device will automatically generate coordinates mapped to San Francisco's active grid coordinates.
+                  Your device coordinates will map your report directly onto the interactive real-time geolocation radar.
                 </div>
               </div>
             )}
