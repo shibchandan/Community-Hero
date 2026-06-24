@@ -14,6 +14,7 @@ interface AuthorityControlProps {
   issues: Issue[];
   onUpdateStatus: (issueId: string, status: IssueStatus, notes: string, proofImage?: string) => void;
   onFastForwardTime: (days: number) => void;
+  theme?: 'dark' | 'light';
 }
 
 // Pre-seeded high quality "repaired/resolved" photo presets
@@ -35,7 +36,7 @@ const PROOF_PRESETS = [
   }
 ];
 
-export default function AuthorityControl({ issues, onUpdateStatus, onFastForwardTime }: AuthorityControlProps) {
+export default function AuthorityControl({ issues, onUpdateStatus, onFastForwardTime, theme = 'dark' }: AuthorityControlProps) {
   const [selectedIssueId, setSelectedIssueId] = useState<string>('');
   const [targetStatus, setTargetStatus] = useState<IssueStatus>('assigned');
   const [actionNotes, setActionNotes] = useState('');
@@ -110,8 +111,10 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
       </div>
 
       {simulationAlert && (
-        <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-400 flex items-center gap-2 animate-fadeIn">
-          <Sparkles className="w-4 h-4 text-indigo-400" />
+        <div className={`p-3.5 rounded-xl border text-xs flex items-center gap-2 animate-fadeIn ${
+          theme === 'dark' ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+        }`}>
+          <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
           {simulationAlert}
         </div>
       )}
@@ -119,15 +122,15 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
       {/* Main Action Form Panel */}
       <div className="p-6 rounded-2xl bento-card shadow-xl">
         <div className="flex items-center gap-2 mb-4">
-          <Landmark className="w-5.5 h-5.5 text-indigo-400" />
-          <h3 className="text-base font-bold font-display text-white">Municipal SLA Dispatch Panel</h3>
+          <Landmark className="w-5.5 h-5.5 text-indigo-550 dark:text-indigo-400" />
+          <h3 className={`text-base font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Municipal SLA Dispatch Panel</h3>
         </div>
 
         <form onSubmit={handleActionSubmit} className="space-y-4">
           
           {/* Issue Selector Dropdown */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Select Open Civic Complaint</label>
+            <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Select Open Civic Complaint</label>
             <select
               value={selectedIssueId}
               onChange={(e) => {
@@ -140,12 +143,14 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
                   else if (selected.status === 'in_progress') setTargetStatus('resolved');
                 }
               }}
-              className="w-full text-xs px-3 py-2.5 rounded-xl border border-white/10 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className={`w-full text-xs px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
+                theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-850'
+              }`}
               required
             >
-              <option value="" className="bg-slate-950">-- Choose active report requiring attention --</option>
+              <option value="" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>-- Choose active report requiring attention --</option>
               {actionableIssues.map(i => (
-                <option key={i.id} value={i.id} className="bg-slate-950">
+                <option key={i.id} value={i.id} className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>
                   [{i.status.toUpperCase()}] {i.title} ({i.location.area})
                 </option>
               ))}
@@ -153,13 +158,17 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
           </div>
 
           {activeIssue && (
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-xs space-y-2.5 animate-fadeIn">
+            <div className={`p-4 rounded-xl border text-xs space-y-2.5 animate-fadeIn ${
+              theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
+            }`}>
               <div className="flex justify-between font-bold">
-                <span className="text-gray-300">Selected: <span className="text-indigo-400">{activeIssue.title}</span></span>
-                <span className="text-gray-400 font-mono">Current state: <span className="text-amber-400 uppercase">{activeIssue.status}</span></span>
+                <span className={theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}>Selected: <span className="text-indigo-600 dark:text-indigo-400">{activeIssue.title}</span></span>
+                <span className={theme === 'dark' ? 'text-gray-400 font-mono' : 'text-slate-500 font-mono'}>Current state: <span className="text-amber-600 dark:text-amber-400 uppercase">{activeIssue.status}</span></span>
               </div>
-              <p className="text-[11px] text-gray-400">"{activeIssue.description}"</p>
-              <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 border-t border-white/10 pt-2 font-mono">
+              <p className={theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}>"{activeIssue.description}"</p>
+              <div className={`grid grid-cols-2 gap-2 text-[10px] border-t pt-2 font-mono ${
+                theme === 'dark' ? 'text-gray-400 border-white/10' : 'text-slate-500 border-slate-200'
+              }`}>
                 <span>Target SLA: {activeIssue.slaDays} Days</span>
                 <span>Coordinates: {activeIssue.location.lat.toFixed(4)}, {activeIssue.location.lng.toFixed(4)}</span>
               </div>
@@ -169,27 +178,31 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
           {/* Workflow Status Action Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Workflow Transition State</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Workflow Transition State</label>
               <select
                 value={targetStatus}
                 onChange={(e) => setTargetStatus(e.target.value as IssueStatus)}
-                className="w-full text-xs px-3 py-2.5 rounded-xl border border-white/10 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className={`w-full text-xs px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
+                  theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-850'
+                }`}
               >
-                <option value="assigned" className="bg-slate-950">Assign Agency Crew</option>
-                <option value="in_progress" className="bg-slate-950">Commence On-Site Repairs (In Progress)</option>
-                <option value="resolved" className="bg-slate-950">Log Repair Completed (Upload Proof)</option>
-                <option value="closed" className="bg-slate-950">Approve Quality Inspection & Close Case</option>
+                <option value="assigned" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>Assign Agency Crew</option>
+                <option value="in_progress" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>Commence On-Site Repairs (In Progress)</option>
+                <option value="resolved" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>Log Repair Completed (Upload Proof)</option>
+                <option value="closed" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'}>Approve Quality Inspection & Close Case</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Official Service Action Notes</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Official Service Action Notes</label>
               <input
                 type="text"
                 value={actionNotes}
                 onChange={(e) => setActionNotes(e.target.value)}
                 placeholder="E.g. Dispatched asphalt crew #2. Repairs scheduled under 24h."
-                className="w-full text-xs px-3 py-2.5 rounded-xl border border-white/10 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className={`w-full text-xs px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
+                  theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-850'
+                }`}
                 required
               />
             </div>
@@ -197,8 +210,8 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
 
           {/* Verification Photo Submission (Only visible during Resolved state transition) */}
           {(targetStatus === 'resolved' || targetStatus === 'closed') && (
-            <div className="border-t border-white/10 pt-4 animate-fadeIn">
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2.5">
+            <div className={`border-t pt-4 animate-fadeIn ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'}`}>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
                 Attach Official Repair Resolution Evidence Photo
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -212,7 +225,9 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
                     className={`relative aspect-[3/2] rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
                       proofPresetIdx === idx
                         ? 'border-emerald-500 ring-4 ring-emerald-500/15'
-                        : 'border-transparent hover:border-white/20'
+                        : theme === 'dark'
+                          ? 'border-transparent hover:border-white/20'
+                          : 'border-transparent hover:border-slate-300'
                     }`}
                   >
                     <img src={preset.url} alt={preset.name} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
@@ -232,7 +247,9 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
             className={`w-full py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-1.5 ${
               selectedIssueId
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-emerald-500/15 cursor-pointer font-bold'
-                : 'bg-slate-900 text-gray-500 border border-white/5 cursor-not-allowed'
+                : theme === 'dark'
+                  ? 'bg-slate-900 text-gray-500 border border-white/5 cursor-not-allowed'
+                  : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
             }`}
           >
             <ShieldCheck className="w-4.5 h-4.5" />

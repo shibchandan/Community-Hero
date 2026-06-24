@@ -13,9 +13,10 @@ interface InteractiveMapProps {
   issues: Issue[];
   onSelectIssue: (issue: Issue) => void;
   selectedIssueId?: string;
+  theme?: 'dark' | 'light';
 }
 
-export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId }: InteractiveMapProps) {
+export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId, theme = 'dark' }: InteractiveMapProps) {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [heatmapMode, setHeatmapMode] = useState<boolean>(false);
@@ -315,13 +316,17 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
     <div className="relative w-full overflow-hidden bento-card shadow-2xl transition-all duration-300">
       
       {/* Map Control Header */}
-      <div className="p-4 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border-b border-white/10 bg-white/5 backdrop-blur-md">
+      <div className={`p-4 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border-b backdrop-blur-md transition-all ${
+        theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-slate-200 bg-white/40'
+      }`}>
         <div>
-          <h3 className="text-lg font-bold font-display text-white flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-indigo-400" />
+          <h3 className={`text-lg font-bold font-display flex items-center gap-2 transition-colors ${
+            theme === 'dark' ? 'text-white' : 'text-slate-800'
+          }`}>
+            <Sliders className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
             Tactical Navigation Radar
           </h3>
-          <p className="text-xs text-gray-400">Interactive live maps plotting community reports globally</p>
+          <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Interactive live maps plotting community reports globally</p>
         </div>
 
         {/* Filters */}
@@ -330,7 +335,9 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-slate-950 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className={`text-xs px-3 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-colors ${
+              theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-800'
+            }`}
           >
             <option value="all">📁 All Categories</option>
             <option value="road">🚧 Road Damage</option>
@@ -344,7 +351,9 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
           <select
             value={filterSeverity}
             onChange={(e) => setFilterSeverity(e.target.value)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-slate-950 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className={`text-xs px-3 py-1.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-colors ${
+              theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-200 bg-white text-slate-800'
+            }`}
           >
             <option value="all">⚡ All Severities</option>
             <option value="high">🔴 High Urgency</option>
@@ -355,10 +364,12 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
           {/* Heatmap Toggle */}
           <button
             onClick={() => setHeatmapMode(!heatmapMode)}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-all duration-300 ${
+            className={`text-xs px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 transition-all duration-300 cursor-pointer ${
               heatmapMode
                 ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-rose-500/25'
-                : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
+                : theme === 'dark'
+                  ? 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 hover:text-slate-800'
             }`}
           >
             <Eye className="w-3.5 h-3.5" />

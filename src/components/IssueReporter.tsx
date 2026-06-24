@@ -286,19 +286,23 @@ export default function IssueReporter({
 
   // Render Status Badge matching standard categories
   const getStatusBadge = (status: string) => {
-    const map: Record<string, { label: string; bg: string; text: string; border: string }> = {
-      reported: { label: 'Reported', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
-      ai_verified: { label: 'AI Verified', bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-      community_verified: { label: 'Community Verified', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
-      assigned: { label: 'Assigned', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
-      in_progress: { label: 'In Progress', bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20' },
-      resolved: { label: 'Resolved', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-      closed: { label: 'Closed', bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' },
+    const map: Record<string, { label: string; bgDark: string; textDark: string; borderDark: string; bgLight: string; textLight: string; borderLight: string }> = {
+      reported: { label: 'Reported', bgDark: 'bg-slate-500/10', textDark: 'text-slate-400', borderDark: 'border-slate-500/20', bgLight: 'bg-slate-200/85', textLight: 'text-slate-800 font-extrabold', borderLight: 'border-slate-300' },
+      ai_verified: { label: 'AI Verified', bgDark: 'bg-blue-500/10', textDark: 'text-blue-400', borderDark: 'border-blue-500/20', bgLight: 'bg-blue-200/80', textLight: 'text-blue-950 font-extrabold', borderLight: 'border-blue-300' },
+      community_verified: { label: 'Civic Verified', bgDark: 'bg-indigo-500/10', textDark: 'text-indigo-400', borderDark: 'border-indigo-500/20', bgLight: 'bg-indigo-200/80', textLight: 'text-indigo-950 font-extrabold', borderLight: 'border-indigo-300' },
+      assigned: { label: 'Assigned', bgDark: 'bg-amber-500/10', textDark: 'text-amber-400', borderDark: 'border-amber-500/30', bgLight: 'bg-amber-200/80', textLight: 'text-amber-950 font-extrabold', borderLight: 'border-amber-300' },
+      in_progress: { label: 'In Progress', bgDark: 'bg-orange-500/10', textDark: 'text-orange-400', borderDark: 'border-orange-500/20', bgLight: 'bg-orange-200/80', textLight: 'text-orange-950 font-extrabold', borderLight: 'border-orange-300' },
+      resolved: { label: 'Resolved', bgDark: 'bg-emerald-500/10', textDark: 'text-emerald-400', borderDark: 'border-emerald-500/20', bgLight: 'bg-emerald-200/85', textLight: 'text-emerald-950 font-extrabold', borderLight: 'border-emerald-300' },
+      closed: { label: 'Closed', bgDark: 'bg-gray-500/10', textDark: 'text-gray-400', borderDark: 'border-gray-500/20', bgLight: 'bg-slate-200', textLight: 'text-slate-700 font-extrabold', borderLight: 'border-slate-300' },
     };
 
-    const s = map[status] || { label: 'Pending', bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/30' };
+    const s = map[status] || { label: 'Pending', bgDark: 'bg-amber-500/10', textDark: 'text-amber-500', borderDark: 'border-amber-500/30', bgLight: 'bg-amber-100', textLight: 'text-amber-950 font-extrabold', borderLight: 'border-amber-300' };
     return (
-      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${s.bg} ${s.text} ${s.border} tracking-wide shadow-xs capitalize`}>
+      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border tracking-wide shadow-xs capitalize ${
+        theme === 'dark' 
+          ? `${s.bgDark} ${s.textDark} ${s.borderDark}` 
+          : `${s.bgLight} ${s.textLight} ${s.borderLight}`
+      }`}>
         {s.label}
       </span>
     );
@@ -317,10 +321,8 @@ export default function IssueReporter({
   };
 
   return (
-    <div className={`relative w-full rounded-2xl p-6 shadow-2xl transition-all duration-300 border ${
-      theme === 'dark' 
-        ? 'bg-slate-950/95 border-white/10 text-white' 
-        : 'bg-white border-slate-200 text-slate-900'
+    <div className={`relative w-full p-6 bento-card transition-all duration-300 ${
+      theme === 'dark' ? 'text-white' : 'text-slate-900 font-medium'
     }`}>
       
       {/* ------------------ VIEW 1: NEED HELP DASHBOARD (As shown in screenshot) ------------------ */}
@@ -353,29 +355,29 @@ export default function IssueReporter({
               <div className={`p-4 rounded-xl border transition-all duration-300 ${
                 theme === 'dark' 
                   ? 'bg-indigo-950/20 border-indigo-500/30 text-slate-300 shadow-lg shadow-indigo-950/20' 
-                  : 'bg-indigo-50/50 border-indigo-200 text-slate-800'
+                  : 'bg-white/60 border-indigo-300/60 text-slate-900 font-medium backdrop-blur-xs'
               }`}>
                 <div className="flex items-center justify-between pb-3 border-b border-dashed border-indigo-500/10">
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">Complaint No. :</span>
-                    <span className="text-xs font-bold font-mono text-indigo-400">#{latestTicket.id.substring(0, 6).toUpperCase()}</span>
+                    <span className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Complaint No. :</span>
+                    <span className="text-xs font-bold font-mono text-indigo-500 dark:text-indigo-400">#{latestTicket.id.substring(0, 6).toUpperCase()}</span>
                   </div>
                   {getStatusBadge(latestTicket.status)}
                 </div>
 
                 <div className="mt-3 space-y-2.5 text-xs">
                   <div className="flex items-center gap-2.5">
-                    <UserIcon className="w-4 h-4 text-indigo-400" />
+                    <UserIcon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <span>
-                      <span className="text-gray-400">Assigned To :</span>{' '}
-                      <span className="font-bold">{latestTicket.department || 'Awaiting Routing Team'}</span>
+                      <span className={theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}>Assigned To :</span>{' '}
+                      <span className={`font-bold ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-black'}`}>{latestTicket.department || 'Awaiting Routing Team'}</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <Calendar className="w-4 h-4 text-indigo-400" />
+                    <Calendar className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <span>
-                      <span className="text-gray-400">Assigned Date :</span>{' '}
-                      <span className="font-bold">
+                      <span className={theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}>Assigned Date :</span>{' '}
+                      <span className={`font-bold ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-black'}`}>
                         {new Date(latestTicket.createdAt).toLocaleDateString('en-US', {
                           month: 'long',
                           day: 'numeric',
@@ -390,32 +392,32 @@ export default function IssueReporter({
               /* High-fidelity simulated onboarding ticket from screenshot */
               <div className={`p-5 rounded-xl border transition-all duration-300 ${
                 theme === 'dark' 
-                  ? 'bg-[#1e293b]/40 border-indigo-500/20 text-slate-300' 
-                  : 'bg-sky-50/50 border-sky-100 text-slate-800'
+                  ? 'bg-slate-900/40 border-indigo-500/20 text-slate-300' 
+                  : 'bg-white/60 border-sky-300/60 text-slate-900 font-medium backdrop-blur-xs'
               }`}>
                 <div className="flex items-center justify-between pb-3 border-b border-dashed border-sky-500/10">
                   <div className="flex items-center gap-1">
-                    <span className={`text-[11px] font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Complaint No. :</span>
-                    <span className="text-sm font-bold text-slate-800 dark:text-indigo-400 font-mono">#00524</span>
+                    <span className={`text-[11px] font-extrabold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700'}`}>Complaint No. :</span>
+                    <span className="text-sm font-bold text-slate-900 dark:text-indigo-400 font-mono">#00524</span>
                   </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/20">
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                     Pending
                   </span>
                 </div>
 
                 <div className="mt-3 space-y-2.5 text-xs">
                   <div className="flex items-center gap-2.5">
-                    <UserIcon className="w-4 h-4 text-slate-400 dark:text-indigo-400" />
+                    <UserIcon className="w-4 h-4 text-slate-500 dark:text-indigo-400" />
                     <span>
-                      <span className={`font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Assigned To :</span>{' '}
-                      <span className="font-bold text-slate-800 dark:text-slate-200">Rabindra Kumar Sharma</span>
+                      <span className={`font-extrabold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700'}`}>Assigned To :</span>{' '}
+                      <span className="font-bold text-slate-900 dark:text-slate-200">Rabindra Kumar Sharma</span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <Calendar className="w-4 h-4 text-slate-400 dark:text-indigo-400" />
+                    <Calendar className="w-4 h-4 text-slate-500 dark:text-indigo-400" />
                     <span>
-                      <span className={`font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Assigned Date :</span>{' '}
-                      <span className="font-bold text-slate-800 dark:text-slate-200">July 29, 2023 | 10:45</span>
+                      <span className={`font-extrabold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700'}`}>Assigned Date :</span>{' '}
+                      <span className="font-bold text-slate-900 dark:text-slate-200">July 29, 2023 | 10:45</span>
                     </span>
                   </div>
                 </div>
@@ -535,7 +537,7 @@ export default function IssueReporter({
               <h4 className={`text-base font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                 Analyzing Issue Landmarks
               </h4>
-              <p className="text-xs text-gray-400 mt-2 max-w-sm">
+              <p className={`text-xs mt-2 max-w-sm ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-bold'}`}>
                 {loadingStep}
               </p>
             </div>
@@ -608,8 +610,8 @@ export default function IssueReporter({
                         : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
                     }`}
                   >
-                    <Camera className="w-5 h-5 text-gray-400 mb-1.5" />
-                    <span className="text-xs text-gray-400 font-medium">Click to upload photo or capture using camera</span>
+                    <Camera className={`w-5 h-5 mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-indigo-600'}`} />
+                    <span className={`text-xs font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-slate-800'}`}>Click to upload photo or capture using camera</span>
                   </div>
                 ) : (
                   <div className="relative w-full aspect-video md:aspect-[3/1] rounded-xl overflow-hidden border border-white/10 bg-black">
@@ -653,12 +655,12 @@ export default function IssueReporter({
                         ? 'border-indigo-500 bg-indigo-500/10 text-white'
                         : theme === 'dark'
                           ? 'border-white/10 bg-white/5 text-gray-400'
-                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                          : 'border-slate-300 bg-white shadow-xs text-slate-850'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
                       <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' || locationMode === 'auto' ? 'text-white' : 'text-slate-800'}`}>
-                        <MapPin className={`w-3.5 h-3.5 ${locationMode === 'auto' ? 'text-indigo-400 animate-pulse' : 'text-gray-400'}`} />
+                        <MapPin className={`w-3.5 h-3.5 ${locationMode === 'auto' ? 'text-indigo-400 animate-pulse' : theme === 'dark' ? 'text-gray-400' : 'text-indigo-600'}`} />
                         GPS Location
                       </span>
                       {geoLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
@@ -682,11 +684,11 @@ export default function IssueReporter({
                         ? 'border-indigo-500 bg-indigo-500/10 text-white'
                         : theme === 'dark'
                           ? 'border-white/10 bg-white/5 text-gray-400'
-                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                          : 'border-slate-300 bg-white shadow-xs text-slate-850'
                     }`}
                   >
                     <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' || locationMode === 'manual' ? 'text-white' : 'text-slate-800'}`}>
-                      <Building className="w-3.5 h-3.5 text-gray-400" />
+                      <Building className={`w-3.5 h-3.5 ${locationMode === 'manual' ? 'text-indigo-400' : theme === 'dark' ? 'text-gray-400' : 'text-indigo-600'}`} />
                       Manual Input
                     </span>
                     <p className="text-[10px] opacity-75 truncate">
@@ -708,7 +710,7 @@ export default function IssueReporter({
                 }`}>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="sm:col-span-2">
-                      <label className="block text-[8px] font-black text-gray-400 uppercase">Street Address</label>
+                      <label className={`block text-[8px] font-black uppercase ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Street Address</label>
                       <input
                         type="text"
                         value={address}
@@ -719,7 +721,7 @@ export default function IssueReporter({
                       />
                     </div>
                     <div>
-                      <label className="block text-[8px] font-black text-gray-400 uppercase">Sector Area</label>
+                      <label className={`block text-[8px] font-black uppercase ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Sector Area</label>
                       <input
                         type="text"
                         value={activeArea}
@@ -746,7 +748,7 @@ export default function IssueReporter({
                 {showOverrideForm && (
                   <div className="mt-3 grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs">
                     <div>
-                      <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Backup Category</label>
+                      <label className={`block text-[9px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Backup Category</label>
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value as IssueCategory)}
@@ -763,7 +765,7 @@ export default function IssueReporter({
                     </div>
 
                     <div>
-                      <label className="block text-[9px] font-bold text-gray-400 uppercase mb-1">Estimated Severity</label>
+                      <label className={`block text-[9px] font-bold uppercase mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Estimated Severity</label>
                       <select
                         value={severity}
                         onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
@@ -962,21 +964,25 @@ export default function IssueReporter({
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">To</label>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>To</label>
                   <input
                     type="text"
                     value="escalations@communityhero.gov"
                     disabled
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-white/10 bg-slate-950/60 text-gray-400 cursor-not-allowed"
+                    className={`w-full text-xs px-3 py-2 rounded-lg border cursor-not-allowed ${
+                      theme === 'dark' 
+                        ? 'border-white/10 bg-slate-950/60 text-gray-400' 
+                        : 'border-slate-300 bg-slate-100 text-slate-700 font-bold'
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Department Route</label>
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Department Route</label>
                   <select
                     value={emailCategory}
                     onChange={(e) => setEmailCategory(e.target.value)}
                     className={`w-full text-xs px-3 py-2 rounded-lg border outline-none ${
-                      theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900'
+                      theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900 font-medium'
                     }`}
                   >
                     <option value="general">SLA General Escalation</option>
@@ -989,7 +995,7 @@ export default function IssueReporter({
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Subject</label>
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Subject</label>
                 <input
                   type="text"
                   required
@@ -997,13 +1003,13 @@ export default function IssueReporter({
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                   className={`w-full text-xs px-3.5 py-2 rounded-lg border outline-none ${
-                    theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900'
+                    theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900 font-medium placeholder-slate-400'
                   }`}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">Detailed Message</label>
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>Detailed Message</label>
                 <textarea
                   required
                   rows={4}
@@ -1011,7 +1017,7 @@ export default function IssueReporter({
                   value={emailBody}
                   onChange={(e) => setEmailBody(e.target.value)}
                   className={`w-full text-xs px-3.5 py-2 rounded-lg border outline-none ${
-                    theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900'
+                    theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900 font-medium placeholder-slate-400'
                   }`}
                 />
               </div>
@@ -1076,11 +1082,11 @@ export default function IssueReporter({
                     {getStatusBadge(t.status)}
                   </div>
 
-                  <p className={`text-xs line-clamp-2 leading-relaxed ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+                  <p className={`text-xs line-clamp-2 leading-relaxed ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-medium'}`}>
                     {t.description}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-400 pt-1">
+                  <div className={`grid grid-cols-2 gap-2 text-[10px] pt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-800 font-extrabold'}`}>
                     <div className="truncate">📍 {t.location.address}</div>
                     <div className="text-right">⏱ SLA: {t.slaDays} Days</div>
                   </div>
@@ -1088,28 +1094,28 @@ export default function IssueReporter({
               ))
             ) : (
               <div className="text-center py-8 space-y-3">
-                <Ticket className="w-10 h-10 text-gray-500 mx-auto" />
+                <Ticket className="w-10 h-10 text-slate-500 mx-auto" />
                 <div>
-                  <h4 className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-700'}`}>No Real Tickets Logged</h4>
-                  <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+                  <h4 className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>No Real Tickets Logged</h4>
+                  <p className={`text-xs mt-1 max-w-xs mx-auto ${theme === 'dark' ? 'text-gray-400' : 'text-slate-650 font-bold'}`}>
                     You have not registered any live tickets with the database yet. Click "Report Your Problem" to log an issue!
                   </p>
                 </div>
                 
                 {/* Onboarding sample ticket as a backup view */}
-                <div className="border-t border-dashed border-white/10 pt-4 mt-2 max-w-sm mx-auto">
-                  <p className="text-[10px] text-indigo-400 uppercase tracking-wider font-bold mb-2">Onboarding Demo Reference:</p>
+                <div className="border-t border-dashed border-slate-300 dark:border-white/10 pt-4 mt-2 max-w-sm mx-auto">
+                  <p className="text-[10px] text-indigo-500 dark:text-indigo-400 uppercase tracking-wider font-bold mb-2">Onboarding Demo Reference:</p>
                   <div className={`p-4 rounded-xl border text-left ${
-                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200'
+                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/80 border-slate-300'
                   }`}>
-                    <div className="flex justify-between items-center pb-2 border-b border-dashed border-white/10">
-                      <span className="text-xs font-bold font-mono text-indigo-400">#00524</span>
-                      <span className="text-[9px] font-bold text-amber-500 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Pending</span>
+                    <div className="flex justify-between items-center pb-2 border-b border-dashed border-indigo-500/10">
+                      <span className="text-xs font-bold font-mono text-indigo-500 dark:text-indigo-400">#00524</span>
+                      <span className="text-[9px] font-extrabold text-amber-600 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">Pending</span>
                     </div>
                     <div className="space-y-1 mt-2 text-[10px]">
-                      <div><strong className="text-gray-400">Route:</strong> Rabindra Kumar Sharma</div>
-                      <div><strong className="text-gray-400">Date:</strong> July 29, 2023 | 10:45</div>
-                      <div><strong className="text-gray-400">Type:</strong> General Civic Incident</div>
+                      <div><strong className={theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}>Route:</strong> <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-bold'}>Rabindra Kumar Sharma</span></div>
+                      <div><strong className={theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}>Date:</strong> <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-bold'}>July 29, 2023 | 10:45</span></div>
+                      <div><strong className={theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}>Type:</strong> <span className={theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-bold'}>General Civic Incident</span></div>
                     </div>
                   </div>
                 </div>

@@ -270,10 +270,10 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen font-sans antialiased transition-all duration-500 overflow-x-hidden relative ${
+    <div className={`min-h-screen font-sans antialiased transition-all duration-500 overflow-x-hidden relative theme-${theme} ${
       theme === 'dark' 
         ? 'bento-bg text-slate-100' 
-        : 'bg-slate-50 text-slate-800'
+        : 'bento-bg-light text-slate-800'
     }`}>
       
       {/* Decorative Blur Circles (Glassmorphism ambient glow backlights) */}
@@ -286,17 +286,23 @@ export default function App() {
       {/* ------------------ FLOATING COGNITIVE SIMULATION CONTROLLER ------------------ */}
       <div className="relative z-50 max-w-7xl mx-auto px-4 pt-4">
         {currentUser ? (
-          <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
+          <div className={`flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
+            theme === 'dark' 
+              ? 'bg-white/5 border-white/10 shadow-black/40' 
+              : 'bg-white/70 border-white/40 shadow-slate-200/50'
+          }`}>
             <div className="flex items-center gap-3">
               <span className="flex h-3.5 w-3.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
               </span>
               <div className="text-xs">
-                <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Active Hackathon Persona Sandbox</span>
+                <span className={`font-bold uppercase tracking-wider text-[10px] ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
+                }`}>Active Hackathon Persona Sandbox</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <UserCheck className="w-4 h-4 text-indigo-400" />
-                  <span className="font-bold text-white">
+                  <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
                     {currentUser.name} 
                   </span>
                   <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
@@ -307,7 +313,9 @@ export default function App() {
                     {currentUser.role}
                   </span>
                   {currentUser.role === 'citizen' && (
-                    <span className="text-gray-400 ml-1.5 font-mono text-[10px]">
+                    <span className={`font-mono text-[10px] ml-1.5 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
+                    }`}>
                       Points: {currentUser.points} pts • Trust: {currentUser.trust_score}%
                     </span>
                   )}
@@ -326,7 +334,11 @@ export default function App() {
 
               <button
                 onClick={syncState}
-                className="p-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-all cursor-pointer"
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+                }`}
                 title="Sync Database State"
                 aria-label="Synchronize database state from Firestore"
               >
@@ -336,7 +348,11 @@ export default function App() {
               {/* Theme Selector */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="p-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-all cursor-pointer"
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+                }`}
                 aria-label={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
                 title={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
               >
@@ -355,20 +371,28 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-lg">
+          <div className={`flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
+            theme === 'dark' 
+              ? 'bg-white/5 border-white/10 shadow-black/40' 
+              : 'bg-white/70 border-white/40 shadow-slate-200/50'
+          }`}>
             <div className="flex items-center gap-3">
               <span className="flex h-3.5 w-3.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-indigo-500"></span>
               </span>
               <div className="text-xs">
-                <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Browsing Mode</span>
+                <span className={`font-bold uppercase tracking-wider text-[10px] ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
+                }`}>Browsing Mode</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="font-bold text-white">Guest Citizen</span>
+                  <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Guest Citizen</span>
                   <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-slate-500/10 text-slate-400 border border-slate-500/20">
                     Guest
                   </span>
-                  <span className="text-gray-400 ml-1.5 font-mono text-[10px]">
+                  <span className={`font-mono text-[10px] ml-1.5 ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
+                  }`}>
                     Authenticate to vote, comment, or report hazards
                   </span>
                 </div>
@@ -379,7 +403,11 @@ export default function App() {
               {/* Theme Selector */}
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="p-1.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-all cursor-pointer"
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+                }`}
                 aria-label={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
                 title={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
               >
@@ -556,16 +584,24 @@ export default function App() {
 
       {/* ------------------ NAVIGATION HEADER ------------------ */}
       <header className="relative z-10 max-w-7xl mx-auto px-4 pt-6">
-        <div className="flex justify-between items-center py-5 px-6 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl shadow-xl">
+        <div className={`flex justify-between items-center py-5 px-6 rounded-2xl shadow-xl backdrop-blur-md border transition-all ${
+          theme === 'dark'
+            ? 'bg-white/5 border-white/10 shadow-black/40'
+            : 'bg-white/70 border-white/50 shadow-slate-200/40'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white font-display">
+              <h1 className={`text-2xl font-bold tracking-tight font-display transition-colors ${
+                theme === 'dark' ? 'text-white' : 'text-slate-800'
+              }`}>
                 Community Hero
               </h1>
-              <p className="text-xs text-blue-400 font-semibold uppercase tracking-widest">
+              <p className={`text-xs font-semibold uppercase tracking-widest ${
+                theme === 'dark' ? 'text-blue-400' : 'text-indigo-600'
+              }`}>
                 Civic Intelligence Engine
               </p>
             </div>
@@ -574,7 +610,11 @@ export default function App() {
           {/* Hamburger Menu Trigger for Mobile */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="xl:hidden p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all cursor-pointer"
+            className={`xl:hidden p-2.5 rounded-xl border transition-all cursor-pointer ${
+              theme === 'dark'
+                ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs'
+            }`}
             aria-label="Open Navigation Drawer"
           >
             <Menu className="w-6 h-6" />
@@ -590,7 +630,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'map'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <Map className="w-4 h-4" /> Explore Radar
@@ -603,7 +645,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'feed'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <FileText className="w-4 h-4" /> Civic Feed
@@ -616,7 +660,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'report'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <Sparkles className="w-4 h-4" /> Report Hazard
@@ -629,7 +675,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'authority'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <Shield className="w-4 h-4" /> SLA Dispatch
@@ -642,7 +690,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'leaderboard'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <Trophy className="w-4 h-4" /> Hero Center
@@ -655,7 +705,9 @@ export default function App() {
               className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'dashboard'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <BarChart3 className="w-4 h-4" /> SLA Analytics
@@ -747,34 +799,37 @@ export default function App() {
                       onVote={handleVote}
                       onAddComment={handleAddComment}
                       currentUserRole={currentUser?.role || 'citizen'}
+                      theme={theme}
                     />
                   </div>
                   {/* Filter / Selected info card */}
-                  <div className="lg:col-span-1">
+                  <div className={`lg:col-span-1 ${activeIssue ? 'block' : 'hidden lg:block'}`}>
                     {activeIssue ? (
                       <div className="p-5 bento-card sticky top-6 space-y-4">
-                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
-                        <img src={activeIssue.mediaUrl} alt={activeIssue.title} referrerPolicy="no-referrer" className="w-full aspect-video rounded-xl object-cover border border-white/10" />
+                        <h4 className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
+                        <img src={activeIssue.mediaUrl} alt={activeIssue.title} referrerPolicy="no-referrer" className={`w-full aspect-video rounded-xl object-cover border ${theme === 'dark' ? 'border-white/10' : 'border-slate-300'}`} />
                         <div>
-                          <h3 className="text-sm font-bold text-white leading-tight">{activeIssue.title}</h3>
-                          <p className="text-[11px] text-slate-400 mt-1">Landmark: {activeIssue.location.address}</p>
+                          <h3 className={`text-sm font-bold leading-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{activeIssue.title}</h3>
+                          <p className={`text-[11px] mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-semibold'}`}>Landmark: {activeIssue.location.address}</p>
                         </div>
-                        <div className="border-t border-white/10 pt-3 space-y-1.5 text-xs text-slate-400">
+                        <div className={`border-t pt-3 space-y-1.5 text-xs ${
+                          theme === 'dark' ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-750 font-medium'
+                        }`}>
                           <div className="flex justify-between">
                             <span>SLA Goal:</span>
-                            <span className="font-bold text-white">{activeIssue.slaDays} Days</span>
+                            <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{activeIssue.slaDays} Days</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Authority Route:</span>
-                            <span className="font-bold text-white truncate max-w-[120px]">{activeIssue.department}</span>
+                            <span className={`font-bold truncate max-w-[120px] ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{activeIssue.department}</span>
                           </div>
                         </div>
                       </div>
                     ) : (
                       <div className="p-5 bento-card sticky top-6 text-center">
                         <Layers className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                        <h4 className="text-xs font-bold text-slate-300">Focused View Empty</h4>
-                        <p className="text-[10px] text-slate-400 mt-1">Select an issue from the feed stream to inspect full comments, validation support, and details.</p>
+                        <h4 className={`text-xs font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-extrabold'}`}>Focused View Empty</h4>
+                        <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>Select an issue from the feed stream to inspect full comments, validation support, and details.</p>
                       </div>
                     )}
                   </div>
@@ -839,6 +894,7 @@ export default function App() {
                         issues={issues}
                         onUpdateStatus={handleUpdateStatus}
                         onFastForwardTime={handleFastForwardTime}
+                        theme={theme}
                       />
                     </div>
                   ) : (
@@ -875,6 +931,7 @@ export default function App() {
                     <GamificationLeaderboard 
                       currentUser={currentUser}
                       usersList={usersList}
+                      theme={theme}
                     />
                   ) : (
                     <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
@@ -906,7 +963,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="w-full"
                 >
-                  <SlaDashboard issues={issues} usersList={usersList} />
+                  <SlaDashboard issues={issues} usersList={usersList} theme={theme} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -916,20 +973,36 @@ export default function App() {
       </main>
  
       {/* Footer */}
-      <footer className="relative z-10 max-w-7xl mx-auto px-4 py-8 mt-12 text-center text-xs text-slate-400 border-t border-slate-200/30 dark:border-slate-800/30">
-        <p>© 2026 Community Hero Civic Platform.</p>
-        <p className="mt-1 opacity-60">Ensuring accountability and transparency in municipal services.</p>
-        <div className="mt-3 flex items-center justify-center gap-4 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+      <footer className={`relative z-10 max-w-3xl mx-auto px-6 py-5 mt-8 mb-6 text-center text-xs rounded-2xl border backdrop-blur-md transition-all duration-300 ${
+        theme === 'dark'
+          ? 'bg-slate-950/40 border-white/10 text-slate-300 shadow-black/20'
+          : 'bg-white/80 border-indigo-200/50 text-slate-800 shadow-indigo-100/30 shadow-md font-medium'
+      }`}>
+        <p className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          © 2026 Community Hero Civic Platform.
+        </p>
+        <p className={`mt-1 text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+          Ensuring accountability and transparency in municipal services.
+        </p>
+        <div className="mt-3.5 flex items-center justify-center gap-4 text-[11px] font-bold">
           <button 
             onClick={() => { setPolicyTab('privacy'); setShowPolicyModal(true); }}
-            className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+            className={`transition-colors hover:underline cursor-pointer ${
+              theme === 'dark' 
+                ? 'text-indigo-400 hover:text-indigo-300' 
+                : 'text-indigo-700 hover:text-indigo-800 font-extrabold'
+            }`}
           >
             Privacy Policy
           </button>
-          <span className="opacity-40 text-slate-300 dark:text-slate-700">•</span>
+          <span className={`opacity-40 ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>•</span>
           <button 
             onClick={() => { setPolicyTab('terms'); setShowPolicyModal(true); }}
-            className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+            className={`transition-colors hover:underline cursor-pointer ${
+              theme === 'dark' 
+                ? 'text-indigo-400 hover:text-indigo-300' 
+                : 'text-indigo-700 hover:text-indigo-800 font-extrabold'
+            }`}
           >
             Terms of Service
           </button>

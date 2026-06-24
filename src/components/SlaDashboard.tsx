@@ -10,6 +10,7 @@ import { BarChart3, TrendingUp, AlertOctagon, Sparkles, Building2, ShieldAlert, 
 interface SlaDashboardProps {
   issues: Issue[];
   usersList?: User[];
+  theme?: 'dark' | 'light';
 }
 
 interface PredictiveRisk {
@@ -21,7 +22,7 @@ interface PredictiveRisk {
   recommendedAction: string;
 }
 
-export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardProps) {
+export default function SlaDashboard({ issues, usersList = [], theme = 'dark' }: SlaDashboardProps) {
   const [predictiveRisks, setPredictiveRisks] = useState<PredictiveRisk[]>([]);
   const [loadingRisks, setLoadingRisks] = useState(false);
 
@@ -95,8 +96,8 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         {/* Total complaints */}
         <div className="p-4 rounded-xl bento-card shadow-lg flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-sans">Total Reports</span>
-            <h3 className="text-2xl font-bold font-display text-white">{totalIssuesCount}</h3>
+            <span className={`text-[10px] font-bold uppercase tracking-wider font-sans ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Total Reports</span>
+            <h3 className={`text-2xl font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-850'}`}>{totalIssuesCount}</h3>
           </div>
           <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
             <Building2 className="w-5 h-5" />
@@ -106,10 +107,10 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         {/* Resolution progress */}
         <div className="p-4 rounded-xl bento-card shadow-lg flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-sans">Resolution rate</span>
-            <h3 className="text-2xl font-bold font-display text-emerald-400">{resolutionRate}%</h3>
+            <span className={`text-[10px] font-bold uppercase tracking-wider font-sans ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Resolution rate</span>
+            <h3 className="text-2xl font-bold font-display text-emerald-500 dark:text-emerald-400">{resolutionRate}%</h3>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
             <CheckCircle className="w-5 h-5" />
           </div>
         </div>
@@ -117,10 +118,10 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         {/* Active Crews */}
         <div className="p-4 rounded-xl bento-card shadow-lg flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-sans">Active Backlog</span>
-            <h3 className="text-2xl font-bold font-display text-amber-400">{activeCount}</h3>
+            <span className={`text-[10px] font-bold uppercase tracking-wider font-sans ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Active Backlog</span>
+            <h3 className="text-2xl font-bold font-display text-amber-500 dark:text-amber-400">{activeCount}</h3>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 dark:text-amber-400">
             <Clock className="w-5 h-5" />
           </div>
         </div>
@@ -128,10 +129,10 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         {/* SLA breaches */}
         <div className="p-4 rounded-xl bento-card shadow-lg flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-sans">SLA Breaches</span>
-            <h3 className="text-2xl font-bold font-display text-red-400">{escalatedCount}</h3>
+            <span className={`text-[10px] font-bold uppercase tracking-wider font-sans ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>SLA Breaches</span>
+            <h3 className="text-2xl font-bold font-display text-red-500 dark:text-red-400">{escalatedCount}</h3>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400">
+          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 dark:text-red-400">
             <ShieldAlert className="w-5 h-5" />
           </div>
         </div>
@@ -145,11 +146,11 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         <div className="lg:col-span-3 p-6 rounded-2xl bento-card shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-base font-bold font-display text-white flex items-center gap-2">
-                <BarChart3 className="w-5.5 h-5.5 text-indigo-400" />
+              <h3 className={`text-base font-bold font-display flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                <BarChart3 className="w-5.5 h-5.5 text-indigo-500 dark:text-indigo-400" />
                 Departmental SLA Load Factor
               </h3>
-              <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full font-bold">Consolidated SLA SLA</span>
+              <span className="text-[10px] bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold">Consolidated SLA</span>
             </div>
 
             {/* Custom SVG/HTML Bar Chart (Super visual, glowing, 100% reliable) */}
@@ -161,15 +162,15 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
                 return (
                   <div key={dept.name} className="space-y-1.5">
                     <div className="flex justify-between text-xs font-semibold">
-                      <span className="text-gray-300">{dept.name}</span>
-                      <span className="text-gray-400 font-mono">
-                        <span className="text-indigo-400 font-extrabold">{dept.resolved}</span> resolved / <span className="text-gray-200">{dept.issues} logged</span>
+                      <span className={theme === 'dark' ? 'text-gray-350' : 'text-slate-750'}>{dept.name}</span>
+                      <span className={`font-mono ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{dept.resolved}</span> resolved / <span className={theme === 'dark' ? 'text-gray-200' : 'text-slate-800'}>{dept.issues} logged</span>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-3">
                       {/* Bar */}
-                      <div className="flex-1 h-3 rounded-full bg-slate-950 overflow-hidden relative border border-white/10">
+                      <div className={`flex-1 h-3 rounded-full overflow-hidden relative border ${theme === 'dark' ? 'bg-slate-950 border-white/10' : 'bg-slate-200 border-slate-300/30'}`}>
                         {/* Glow back filler */}
                         <div 
                           className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-600 shadow-lg opacity-85 transition-all duration-700"
@@ -177,7 +178,7 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
                         />
                       </div>
                       {/* Rate label */}
-                      <span className="text-[10px] font-bold text-gray-400 font-mono w-8 text-right">
+                      <span className={`text-[10px] font-bold font-mono w-8 text-right ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
                         {ratio}%
                       </span>
                     </div>
@@ -187,8 +188,8 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-6 border-t border-white/10 pt-3">
-            <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <div className={`flex items-center gap-1.5 text-[10px] mt-6 border-t pt-3 ${theme === 'dark' ? 'text-gray-400 border-white/10' : 'text-slate-500 border-slate-200'}`}>
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
             <span>Target response SLA budget of 3 days for Sanitation, and 7 days for Potholes strictly enforced.</span>
           </div>
         </div>
@@ -196,35 +197,37 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
         {/* Predictive Risks Cards */}
         <div className="lg:col-span-2 p-6 rounded-2xl bento-card shadow-xl flex flex-col">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5.5 h-5.5 text-violet-400 animate-pulse" />
-            <h3 className="text-base font-bold font-display text-white font-sans">Predictive Infrastructure Risks</h3>
+            <Sparkles className="w-5.5 h-5.5 text-violet-500 dark:text-violet-400 animate-pulse" />
+            <h3 className={`text-base font-bold font-display font-sans ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Predictive Infrastructure Risks</h3>
           </div>
 
           <div className="space-y-4 flex-1 overflow-y-auto max-h-[320px] pr-1">
             {loadingRisks ? (
-              <span className="text-xs text-gray-400 italic block text-center py-8">Fetching real-time predictive data...</span>
+              <span className={`text-xs italic block text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-550'}`}>Fetching real-time predictive data...</span>
             ) : predictiveRisks.length === 0 ? (
-              <span className="text-xs text-gray-400 italic block text-center py-8">No risks mapped.</span>
+              <span className={`text-xs italic block text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-550'}`}>No risks mapped.</span>
             ) : (
               predictiveRisks.map(risk => (
                 <div 
                   key={risk.id} 
-                  className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs space-y-2 relative overflow-hidden"
+                  className={`p-3.5 rounded-xl border text-xs space-y-2 relative overflow-hidden transition-colors ${
+                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
+                  }`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="space-y-0.5">
-                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider block font-mono">{risk.zone}</span>
-                      <h4 className="font-bold text-gray-200 text-xs">{risk.hazardType}</h4>
+                      <span className={`text-[9px] font-bold uppercase tracking-wider block font-mono ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>{risk.zone}</span>
+                      <h4 className={`font-bold text-xs ${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'}`}>{risk.hazardType}</h4>
                     </div>
-                    <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/25 animate-pulse">
+                    <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 animate-pulse">
                       {risk.probability}% Prob
                     </span>
                   </div>
 
                   {/* Factor Bullets */}
                   <div className="space-y-1">
-                    <span className="text-[8px] font-extrabold uppercase tracking-wide text-gray-400">Environmental Stress Factors</span>
-                    <ul className="list-disc list-inside text-[10px] text-gray-400 space-y-0.5 pl-0.5">
+                    <span className={`text-[8px] font-extrabold uppercase tracking-wide ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Environmental Stress Factors</span>
+                    <ul className={`list-disc list-inside text-[10px] space-y-0.5 pl-0.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-650'}`}>
                       {risk.factors.map((f, i) => (
                         <li key={i}>{f}</li>
                       ))}
@@ -232,7 +235,9 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
                   </div>
 
                   {/* Recommended preventative action */}
-                  <div className="mt-2 text-[9px] text-violet-400 font-bold uppercase tracking-wider bg-violet-500/5 px-2 py-1 rounded border border-violet-500/10">
+                  <div className={`mt-2 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded border ${
+                    theme === 'dark' ? 'text-violet-400 bg-violet-500/5 border-violet-500/10' : 'text-indigo-600 bg-indigo-50 border-indigo-100'
+                  }`}>
                     Proactive Action: {risk.recommendedAction}
                   </div>
                 </div>
@@ -245,44 +250,44 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
 
       {/* Reward Points System Analytics */}
       <div className="p-6 rounded-2xl bento-card shadow-xl space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'}`}>
           <div>
-            <h3 className="text-base font-bold font-display text-white flex items-center gap-2">
-              <Trophy className="w-5.5 h-5.5 text-amber-400" />
+            <h3 className={`text-base font-bold font-display flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+              <Trophy className="w-5.5 h-5.5 text-amber-500 dark:text-amber-400" />
               Civic Reward Points & Gamification Analytics
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className={`text-xs mt-0.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
               Analyzing distributed incentive tokens, karma growth, and user participation multipliers.
             </p>
           </div>
           <div className="flex gap-2.5">
             <div className="bg-amber-500/10 border border-amber-500/25 px-3.5 py-1.5 rounded-xl text-center">
-              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Total Points Distributed</div>
-              <div className="text-sm font-black font-mono text-white mt-0.5">{totalPoints} Pts</div>
+              <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Total Points Distributed</div>
+              <div className={`text-sm font-black font-mono mt-0.5 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{totalPoints} Pts</div>
             </div>
             <div className="bg-indigo-500/10 border border-indigo-500/25 px-3.5 py-1.5 rounded-xl text-center">
-              <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Avg Points / Citizen</div>
-              <div className="text-sm font-black font-mono text-white mt-0.5">{avgPoints} Pts</div>
+              <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Avg Points / Citizen</div>
+              <div className={`text-sm font-black font-mono mt-0.5 ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{avgPoints} Pts</div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Points by Category */}
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-indigo-400" /> Points Earned by Category
+          <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+            <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
+              <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" /> Points Earned by Category
             </h4>
             <div className="space-y-2.5">
               {categoryPointsData.map(item => (
                 <div key={item.category} className="space-y-1">
                   <div className="flex justify-between text-[11px]">
-                    <span className="text-gray-400">{item.name}</span>
-                    <span className="font-bold text-white font-mono">{item.points} Pts ({item.percent}%)</span>
+                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}>{item.name}</span>
+                    <span className={`font-bold font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{item.points} Pts ({item.percent}%)</span>
                   </div>
-                  <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                  <div className={`w-full h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-200'}`}>
                     <div 
-                      className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500" 
+                      className="h-full rounded-full bg-gradient-to-r from-amber-450 to-orange-500" 
                       style={{ width: `${item.percent}%` }}
                     />
                   </div>
@@ -292,58 +297,58 @@ export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardPro
           </div>
 
           {/* Points Milestones & Achievements */}
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-amber-400" /> Solver Rank Density
+          <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+            <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
+              <Award className="w-4 h-4 text-amber-500 dark:text-amber-400" /> Solver Rank Density
             </h4>
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
-                <span className="flex items-center gap-2">👑 District Guardian <span className="text-[10px] text-gray-400">(400+ Pts)</span></span>
-                <span className="font-bold text-indigo-400 font-mono">{rankCounts.guardian} Users</span>
+              <div className={`flex items-center justify-between p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-950/40' : 'bg-white border border-slate-200/60 shadow-xs'}`}>
+                <span className={`flex items-center gap-2 ${theme === 'dark' ? 'text-gray-200' : 'text-slate-750'}`}>👑 District Guardian <span className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>(400+ Pts)</span></span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">{rankCounts.guardian} Users</span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
-                <span className="flex items-center gap-2">🏅 Neighborhood Ambassador <span className="text-[10px] text-gray-400">(250-399)</span></span>
-                <span className="font-bold text-indigo-400 font-mono">{rankCounts.ambassador} Users</span>
+              <div className={`flex items-center justify-between p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-950/40' : 'bg-white border border-slate-200/60 shadow-xs'}`}>
+                <span className={`flex items-center gap-2 ${theme === 'dark' ? 'text-gray-200' : 'text-slate-750'}`}>🏅 Neighborhood Ambassador <span className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>(250-399)</span></span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">{rankCounts.ambassador} Users</span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
-                <span className="flex items-center gap-2">🕵️ Local Vigilante <span className="text-[10px] text-gray-400">(100-249)</span></span>
-                <span className="font-bold text-indigo-400 font-mono">{rankCounts.vigilante} Users</span>
+              <div className={`flex items-center justify-between p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-950/40' : 'bg-white border border-slate-200/60 shadow-xs'}`}>
+                <span className={`flex items-center gap-2 ${theme === 'dark' ? 'text-gray-200' : 'text-slate-750'}`}>🕵️ Local Vigilante <span className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>(100-249)</span></span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">{rankCounts.vigilante} Users</span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
-                <span className="flex items-center gap-2">🌱 Civic Rookie <span className="text-[10px] text-gray-400">(0-99)</span></span>
-                <span className="font-bold text-indigo-400 font-mono">{rankCounts.rookie} Users</span>
+              <div className={`flex items-center justify-between p-2 rounded-lg ${theme === 'dark' ? 'bg-slate-950/40' : 'bg-white border border-slate-200/60 shadow-xs'}`}>
+                <span className={`flex items-center gap-2 ${theme === 'dark' ? 'text-gray-200' : 'text-slate-750'}`}>🌱 Civic Rookie <span className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>(0-99)</span></span>
+                <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">{rankCounts.rookie} Users</span>
               </div>
             </div>
           </div>
 
           {/* Live System Multipliers */}
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-yellow-400 animate-pulse" /> Neighborhood Multipliers
+          <div className={`p-4 rounded-xl border space-y-3 ${theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+            <h4 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-300' : 'text-slate-700'}`}>
+              <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400 animate-pulse" /> Neighborhood Multipliers
             </h4>
             <div className="space-y-2 text-xs">
-              <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
+              <div className={`p-2.5 rounded-lg flex items-center justify-between border ${theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-emerald-50 border-emerald-100'}`}>
                 <div>
-                  <div className="font-bold text-emerald-400">Pothole Patrol Active</div>
-                  <div className="text-[10px] text-gray-400">Road issues validation is boosted</div>
+                  <div className="font-bold text-emerald-600 dark:text-emerald-400">Pothole Patrol Active</div>
+                  <div className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-emerald-700/80'}`}>Road issues validation is boosted</div>
                 </div>
-                <span className="text-xs font-black bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">1.5x Multiplier</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-800'}`}>1.5x Multiplier</span>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 flex items-center justify-between">
+              <div className={`p-2.5 rounded-lg flex items-center justify-between border ${theme === 'dark' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
                 <div>
-                  <div className="font-bold text-indigo-400">Civic Mentor Level</div>
-                  <div className="text-[10px] text-gray-400">High trust users validation bonus</div>
+                  <div className="font-bold text-indigo-600 dark:text-indigo-400">Civic Mentor Level</div>
+                  <div className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-indigo-700/80'}`}>High trust users validation bonus</div>
                 </div>
-                <span className="text-xs font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">1.2x Multiplier</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-100 text-indigo-850'}`}>1.2x Multiplier</span>
               </div>
 
-              <div className="p-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/20 flex items-center justify-between">
+              <div className={`p-2.5 rounded-lg flex items-center justify-between border ${theme === 'dark' ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-amber-50 border-amber-200/60'}`}>
                 <div>
-                  <div className="font-bold text-yellow-400">Flash Sentry Active</div>
-                  <div className="text-[10px] text-gray-400">Verification during off-peak hours</div>
+                  <div className="font-bold text-amber-600 dark:text-yellow-500">Flash Sentry Active</div>
+                  <div className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-amber-700/80'}`}>Verification during off-peak hours</div>
                 </div>
-                <span className="text-xs font-black bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">2.0x Multiplier</span>
+                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-amber-100 text-amber-800'}`}>2.0x Multiplier</span>
               </div>
             </div>
           </div>
