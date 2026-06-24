@@ -4,11 +4,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Issue, IssueCategory } from '../types';
-import { BarChart3, TrendingUp, AlertOctagon, Sparkles, Building2, ShieldAlert, CheckCircle, Clock } from 'lucide-react';
+import { Issue, IssueCategory, User } from '../types';
+import { BarChart3, TrendingUp, AlertOctagon, Sparkles, Building2, ShieldAlert, CheckCircle, Clock, Trophy, Award, Zap } from 'lucide-react';
 
 interface SlaDashboardProps {
   issues: Issue[];
+  usersList?: User[];
 }
 
 interface PredictiveRisk {
@@ -20,9 +21,31 @@ interface PredictiveRisk {
   recommendedAction: string;
 }
 
-export default function SlaDashboard({ issues }: SlaDashboardProps) {
+export default function SlaDashboard({ issues, usersList = [] }: SlaDashboardProps) {
   const [predictiveRisks, setPredictiveRisks] = useState<PredictiveRisk[]>([]);
   const [loadingRisks, setLoadingRisks] = useState(false);
+
+  // Points & Gamification analytics math
+  const totalPoints = usersList.reduce((sum, u) => sum + (u.points || 0), 0);
+  const avgPoints = usersList.length > 0 ? Math.round(totalPoints / usersList.length) : 0;
+
+  // Points earned by category distribution
+  const totalIssuesByCategory = issues.length || 1;
+  const categoryPointsData = [
+    { category: 'road', name: 'Road Damage Patrolling', points: issues.filter(i => i.category === 'road').length * 20, percent: Math.max(5, Math.round((issues.filter(i => i.category === 'road').length / totalIssuesByCategory) * 100)) },
+    { category: 'garbage', name: 'Garbage & Sanitation', points: issues.filter(i => i.category === 'garbage').length * 20, percent: Math.max(5, Math.round((issues.filter(i => i.category === 'garbage').length / totalIssuesByCategory) * 100)) },
+    { category: 'water', name: 'Water & Plumb Patrolling', points: issues.filter(i => i.category === 'water').length * 20, percent: Math.max(5, Math.round((issues.filter(i => i.category === 'water').length / totalIssuesByCategory) * 100)) },
+    { category: 'streetlight', name: 'Electrical Failure Sentry', points: issues.filter(i => i.category === 'streetlight').length * 20, percent: Math.max(5, Math.round((issues.filter(i => i.category === 'streetlight').length / totalIssuesByCategory) * 100)) },
+    { category: 'safety', name: 'Public Safety Watch', points: issues.filter(i => i.category === 'safety').length * 20, percent: Math.max(5, Math.round((issues.filter(i => i.category === 'safety').length / totalIssuesByCategory) * 100)) },
+  ];
+
+  // Ranks density calculation from actual users list
+  const rankCounts = {
+    guardian: Math.max(1, usersList.filter(u => (u.points || 0) >= 400).length),
+    ambassador: Math.max(1, usersList.filter(u => (u.points || 0) >= 250 && (u.points || 0) < 400).length),
+    vigilante: Math.max(1, usersList.filter(u => (u.points || 0) >= 100 && (u.points || 0) < 250).length),
+    rookie: Math.max(1, usersList.filter(u => (u.points || 0) < 100).length)
+  };
 
   // Fetch predictive risks on mount
   useEffect(() => {
@@ -218,6 +241,113 @@ export default function SlaDashboard({ issues }: SlaDashboardProps) {
           </div>
         </div>
 
+      </div>
+
+      {/* Reward Points System Analytics */}
+      <div className="p-6 rounded-2xl bento-card shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <h3 className="text-base font-bold font-display text-white flex items-center gap-2">
+              <Trophy className="w-5.5 h-5.5 text-amber-400" />
+              Civic Reward Points & Gamification Analytics
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Analyzing distributed incentive tokens, karma growth, and user participation multipliers.
+            </p>
+          </div>
+          <div className="flex gap-2.5">
+            <div className="bg-amber-500/10 border border-amber-500/25 px-3.5 py-1.5 rounded-xl text-center">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Total Points Distributed</div>
+              <div className="text-sm font-black font-mono text-white mt-0.5">{totalPoints} Pts</div>
+            </div>
+            <div className="bg-indigo-500/10 border border-indigo-500/25 px-3.5 py-1.5 rounded-xl text-center">
+              <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Avg Points / Citizen</div>
+              <div className="text-sm font-black font-mono text-white mt-0.5">{avgPoints} Pts</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Points by Category */}
+          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-indigo-400" /> Points Earned by Category
+            </h4>
+            <div className="space-y-2.5">
+              {categoryPointsData.map(item => (
+                <div key={item.category} className="space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">{item.name}</span>
+                    <span className="font-bold text-white font-mono">{item.points} Pts ({item.percent}%)</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500" 
+                      style={{ width: `${item.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Points Milestones & Achievements */}
+          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-amber-400" /> Solver Rank Density
+            </h4>
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
+                <span className="flex items-center gap-2">👑 District Guardian <span className="text-[10px] text-gray-400">(400+ Pts)</span></span>
+                <span className="font-bold text-indigo-400 font-mono">{rankCounts.guardian} Users</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
+                <span className="flex items-center gap-2">🏅 Neighborhood Ambassador <span className="text-[10px] text-gray-400">(250-399)</span></span>
+                <span className="font-bold text-indigo-400 font-mono">{rankCounts.ambassador} Users</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
+                <span className="flex items-center gap-2">🕵️ Local Vigilante <span className="text-[10px] text-gray-400">(100-249)</span></span>
+                <span className="font-bold text-indigo-400 font-mono">{rankCounts.vigilante} Users</span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40">
+                <span className="flex items-center gap-2">🌱 Civic Rookie <span className="text-[10px] text-gray-400">(0-99)</span></span>
+                <span className="font-bold text-indigo-400 font-mono">{rankCounts.rookie} Users</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Live System Multipliers */}
+          <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-yellow-400 animate-pulse" /> Neighborhood Multipliers
+            </h4>
+            <div className="space-y-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-emerald-400">Pothole Patrol Active</div>
+                  <div className="text-[10px] text-gray-400">Road issues validation is boosted</div>
+                </div>
+                <span className="text-xs font-black bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full">1.5x Multiplier</span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-indigo-400">Civic Mentor Level</div>
+                  <div className="text-[10px] text-gray-400">High trust users validation bonus</div>
+                </div>
+                <span className="text-xs font-black bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">1.2x Multiplier</span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-yellow-500/5 border border-yellow-500/20 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-yellow-400">Flash Sentry Active</div>
+                  <div className="text-[10px] text-gray-400">Verification during off-peak hours</div>
+                </div>
+                <span className="text-xs font-black bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded-full">2.0x Multiplier</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>

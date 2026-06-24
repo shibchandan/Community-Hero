@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Issue, IssueCategory } from '../types';
-import { Sliders, Eye, Locate, Loader2, Info } from 'lucide-react';
+import { Sliders, Eye, Locate, Loader2, Info, Moon, Sun, Globe, Map as MapIcon } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -19,6 +19,8 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [heatmapMode, setHeatmapMode] = useState<boolean>(false);
+  const [mapMode, setMapMode] = useState<'dark' | 'light' | 'satellite' | 'street'>('dark');
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
   // States for user location beacon on the map
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
@@ -27,6 +29,7 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
 
@@ -95,7 +98,7 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Use a beautiful, high-contrast dark tileset (CartoDB Dark Matter)
+    // Use a beautiful, high-contrast dark tileset (CartoDB Dark Matter) as initial default
     const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: 'abcd',
@@ -115,7 +118,9 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
     const markersLayer = L.layerGroup().addTo(map);
 
     mapRef.current = map;
+    tileLayerRef.current = darkTiles;
     markersLayerRef.current = markersLayer;
+    setMapReady(true);
 
     // Handle initial map size adjustment
     setTimeout(() => {
@@ -123,14 +128,50 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
     }, 200);
 
     return () => {
+      setMapReady(false);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
       markersLayerRef.current = null;
       userMarkerRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
+
+  // 1.1 Dynamic Map Style/Mode Swapping Effect
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    // Remove existing tile layer safely
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+    if (mapMode === 'light') {
+      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    } else if (mapMode === 'satellite') {
+      url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+    } else if (mapMode === 'street') {
+      url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    }
+
+    const newTiles = L.tileLayer(url, {
+      attribution,
+      subdomains: 'abcd',
+      maxZoom: 20
+    });
+
+    newTiles.addTo(map);
+    tileLayerRef.current = newTiles;
+  }, [mapMode, mapReady]);
 
   // 2. Synchronize Map Markers with filtered issues
   useEffect(() => {
@@ -372,6 +413,65 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId 
               <p>{locError}</p>
             </div>
           )}
+        </div>
+
+        {/* Floating Map Mode Selector (Top Right) */}
+        <div className="absolute top-4 right-4 z-30 flex gap-1 p-1 rounded-xl bg-[#0a0c14]/90 border border-white/10 backdrop-blur-md shadow-xl">
+          <button
+            onClick={() => setMapMode('dark')}
+            aria-label="Tactical Dark Mode"
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+              mapMode === 'dark'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Sleek High-Contrast Tactical Dark Grid"
+          >
+            <Moon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Dark</span>
+          </button>
+          
+          <button
+            onClick={() => setMapMode('light')}
+            aria-label="Legible Light Mode"
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+              mapMode === 'light'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Clean, Highly Legible Light Style"
+          >
+            <Sun className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Light</span>
+          </button>
+
+          <button
+            onClick={() => setMapMode('satellite')}
+            aria-label="Satellite Imagery Mode"
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+              mapMode === 'satellite'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Real Satellite Imagery Aerial View"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Satellite</span>
+          </button>
+
+          <button
+            onClick={() => setMapMode('street')}
+            aria-label="Detailed Street Mode"
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+              mapMode === 'street'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+            title="Detailed Standard Street Map"
+          >
+            <MapIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Street</span>
+          </button>
         </div>
 
         {/* Legend Panel */}

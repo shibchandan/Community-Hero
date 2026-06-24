@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'motion/react';
 import AuthPage from './components/AuthPage';
 import { Issue, User, IssueStatus } from './types';
 import InteractiveMap from './components/InteractiveMap';
@@ -32,6 +33,8 @@ export default function App() {
   const [fbUser, setFbUser] = useState<any>(null);
   const [fbLoading, setFbLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policyTab, setPolicyTab] = useState<'privacy' | 'terms'>('privacy');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Monitor Firebase Auth changes and sync with Express database
@@ -671,189 +674,242 @@ export default function App() {
           </div>
         ) : (
           <div className="space-y-6">
-            
-            {/* 1. Radar Map Tab */}
-            {activeTab === 'map' && (
-              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                <div className="xl:col-span-3">
-                  <InteractiveMap 
-                    issues={issues} 
-                    onSelectIssue={handleSelectIssue}
-                    selectedIssueId={selectedIssueId}
-                  />
-                </div>
-                {/* Micro sidebar with short overview */}
-                <div className="xl:col-span-1 space-y-4">
-                  <div className="p-5 bento-card">
-                    <h4 className="text-sm font-bold font-display text-white mb-2 flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-indigo-400" />
-                      Active Sector Overview
-                    </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Select any pin on the radar map to view its active validation states, upvotes, and departmental assignment timelines.
-                    </p>
-                    <div className="mt-4 border-t border-white/10 pt-3 space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Potholes & Roads:</span>
-                        <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'road').length} cases</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Garbage Overflows:</span>
-                        <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'garbage').length} cases</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Broken Streetlights:</span>
-                        <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'streetlight').length} cases</span>
+            <AnimatePresence mode="wait">
+              {/* 1. Radar Map Tab */}
+              {activeTab === 'map' && (
+                <motion.div
+                  key="map"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="grid grid-cols-1 xl:grid-cols-4 gap-6"
+                >
+                  <div className="xl:col-span-3">
+                    <InteractiveMap 
+                      issues={issues} 
+                      onSelectIssue={handleSelectIssue}
+                      selectedIssueId={selectedIssueId}
+                    />
+                  </div>
+                  {/* Micro sidebar with short overview */}
+                  <div className="xl:col-span-1 space-y-4">
+                    <div className="p-5 bento-card">
+                      <h4 className="text-sm font-bold font-display text-white mb-2 flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-indigo-400" />
+                        Active Sector Overview
+                      </h4>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Select any pin on the radar map to view its active validation states, upvotes, and departmental assignment timelines.
+                      </p>
+                      <div className="mt-4 border-t border-white/10 pt-3 space-y-2 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Potholes & Roads:</span>
+                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'road').length} cases</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Garbage Overflows:</span>
+                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'garbage').length} cases</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Broken Streetlights:</span>
+                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'streetlight').length} cases</span>
+                        </div>
                       </div>
                     </div>
+
+                    <button
+                      onClick={() => setActiveTab('report')}
+                      aria-label="Navigate to report a new hazard"
+                      className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Sparkles className="w-4.5 h-4.5" /> Log New Incident Map
+                    </button>
                   </div>
+                </motion.div>
+              )}
 
-                  <button
-                    onClick={() => setActiveTab('report')}
-                    aria-label="Navigate to report a new hazard"
-                    className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Sparkles className="w-4.5 h-4.5" /> Log New Incident Map
-                  </button>
-                </div>
-              </div>
-            )}
+              {/* 2. Civic Board Tab */}
+              {activeTab === 'feed' && (
+                <motion.div
+                  key="feed"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="grid grid-cols-1 lg:grid-cols-4 gap-6"
+                >
+                  <div className="lg:col-span-3">
+                    <CommunityFeed 
+                      issues={issues}
+                      selectedIssueId={selectedIssueId}
+                      onSelectIssue={handleSelectIssue}
+                      onVote={handleVote}
+                      onAddComment={handleAddComment}
+                      currentUserRole={currentUser?.role || 'citizen'}
+                    />
+                  </div>
+                  {/* Filter / Selected info card */}
+                  <div className="lg:col-span-1">
+                    {activeIssue ? (
+                      <div className="p-5 bento-card sticky top-6 space-y-4">
+                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
+                        <img src={activeIssue.mediaUrl} alt={activeIssue.title} referrerPolicy="no-referrer" className="w-full aspect-video rounded-xl object-cover border border-white/10" />
+                        <div>
+                          <h3 className="text-sm font-bold text-white leading-tight">{activeIssue.title}</h3>
+                          <p className="text-[11px] text-slate-400 mt-1">Landmark: {activeIssue.location.address}</p>
+                        </div>
+                        <div className="border-t border-white/10 pt-3 space-y-1.5 text-xs text-slate-400">
+                          <div className="flex justify-between">
+                            <span>SLA Goal:</span>
+                            <span className="font-bold text-white">{activeIssue.slaDays} Days</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Authority Route:</span>
+                            <span className="font-bold text-white truncate max-w-[120px]">{activeIssue.department}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-5 bento-card sticky top-6 text-center">
+                        <Layers className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                        <h4 className="text-xs font-bold text-slate-300">Focused View Empty</h4>
+                        <p className="text-[10px] text-slate-400 mt-1">Select an issue from the feed stream to inspect full comments, validation support, and details.</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
 
-            {/* 2. Civic Board Tab */}
-            {activeTab === 'feed' && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="lg:col-span-3">
-                  <CommunityFeed 
-                    issues={issues}
-                    selectedIssueId={selectedIssueId}
-                    onSelectIssue={handleSelectIssue}
-                    onVote={handleVote}
-                    onAddComment={handleAddComment}
-                    currentUserRole={currentUser?.role || 'citizen'}
-                  />
-                </div>
-                {/* Filter / Selected info card */}
-                <div className="lg:col-span-1">
-                  {activeIssue ? (
-                    <div className="p-5 bento-card sticky top-6 space-y-4">
-                      <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
-                      <img src={activeIssue.mediaUrl} alt={activeIssue.title} referrerPolicy="no-referrer" className="w-full aspect-video rounded-xl object-cover border border-white/10" />
-                      <div>
-                        <h3 className="text-sm font-bold text-white leading-tight">{activeIssue.title}</h3>
-                        <p className="text-[11px] text-slate-400 mt-1">Landmark: {activeIssue.location.address}</p>
-                      </div>
-                      <div className="border-t border-white/10 pt-3 space-y-1.5 text-xs text-slate-400">
-                        <div className="flex justify-between">
-                          <span>SLA Goal:</span>
-                          <span className="font-bold text-white">{activeIssue.slaDays} Days</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Authority Route:</span>
-                          <span className="font-bold text-white truncate max-w-[120px]">{activeIssue.department}</span>
-                        </div>
-                      </div>
+              {/* 3. Report Hazard Tab */}
+              {activeTab === 'report' && (
+                <motion.div
+                  key="report"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  {currentUser ? (
+                    <div className="max-w-3xl mx-auto">
+                      <IssueReporter 
+                        onIssueReported={(newIssue) => {
+                          handleSelectIssue(newIssue);
+                        }}
+                        activeArea={currentUser?.area || 'Mission District'}
+                        issues={issues}
+                        currentUser={currentUser}
+                        theme={theme}
+                      />
                     </div>
                   ) : (
-                    <div className="p-5 bento-card sticky top-6 text-center">
-                      <Layers className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                      <h4 className="text-xs font-bold text-slate-300">Focused View Empty</h4>
-                      <p className="text-[10px] text-slate-400 mt-1">Select an issue from the feed stream to inspect full comments, validation support, and details.</p>
+                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 to-blue-600" />
+                      <Sparkles className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-bold text-white font-display">Report Civic Hazard</h3>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        You must sign in or register to report a new civic issue. Our AI automatically classifies and routes reported issues to city maintenance teams.
+                      </p>
+                      <button
+                        onClick={() => setShowAuthModal(true)}
+                        aria-label="Sign in to report a civic hazard"
+                        className="mt-6 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-indigo-500/20"
+                      >
+                        Sign In to Continue
+                      </button>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
+                </motion.div>
+              )}
 
-            {/* 3. Report Hazard Tab */}
-            {activeTab === 'report' && (
-              currentUser ? (
-                <div className="max-w-3xl mx-auto">
-                  <IssueReporter 
-                    onIssueReported={(newIssue) => {
-                      handleSelectIssue(newIssue);
-                    }}
-                    activeArea={currentUser?.area || 'Mission District'}
-                  />
-                </div>
-              ) : (
-                <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
-                  <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 to-blue-600" />
-                  <Sparkles className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-white font-display">Report Civic Hazard</h3>
-                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    You must sign in or register to report a new civic issue. Our AI automatically classifies and routes reported issues to city maintenance teams.
-                  </p>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    aria-label="Sign in to report a civic hazard"
-                    className="mt-6 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-indigo-500/20"
-                  >
-                    Sign In to Continue
-                  </button>
-                </div>
-              )
-            )}
- 
-            {/* 4. SLA Dispatch Tab */}
-            {activeTab === 'authority' && (
-              currentUser ? (
-                <div className="max-w-4xl mx-auto">
-                  <AuthorityControl 
-                    issues={issues}
-                    onUpdateStatus={handleUpdateStatus}
-                    onFastForwardTime={handleFastForwardTime}
-                  />
-                </div>
-              ) : (
-                <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
-                  <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-500" />
-                  <Shield className="w-12 h-12 text-rose-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-white font-display">SLA Dispatch Console</h3>
-                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Access to the SLA Dispatch work orders console is restricted to authorized municipal accounts. Please sign in to access dispatcher tools.
-                  </p>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    aria-label="Sign in to access SLA Dispatch tools"
-                    className="mt-6 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-rose-500/20"
-                  >
-                    Sign In to Continue
-                  </button>
-                </div>
-              )
-            )}
- 
-            {/* 5. Leaderboard Tab */}
-            {activeTab === 'leaderboard' && (
-              currentUser ? (
-                <GamificationLeaderboard 
-                  currentUser={currentUser}
-                  usersList={usersList}
-                />
-              ) : (
-                <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
-                  <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-500 to-yellow-500" />
-                  <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-white font-display">Hero Center</h3>
-                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Track community impact scores, unlock badges, and rise in ranks! Sign in to view your profile and the citizen leaderboard.
-                  </p>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    aria-label="Sign in to view Hero leaderboard"
-                    className="mt-6 px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-amber-500/20"
-                  >
-                    Sign In to Continue
-                  </button>
-                </div>
-              )
-            )}
- 
-            {/* 6. Dashboard SLA Tab */}
-            {activeTab === 'dashboard' && (
-              <SlaDashboard issues={issues} />
-            )}
- 
+              {/* 4. SLA Dispatch Tab */}
+              {activeTab === 'authority' && (
+                <motion.div
+                  key="authority"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  {currentUser ? (
+                    <div className="max-w-4xl mx-auto">
+                      <AuthorityControl 
+                        issues={issues}
+                        onUpdateStatus={handleUpdateStatus}
+                        onFastForwardTime={handleFastForwardTime}
+                      />
+                    </div>
+                  ) : (
+                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-500" />
+                      <Shield className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-bold text-white font-display">SLA Dispatch Console</h3>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Access to the SLA Dispatch work orders console is restricted to authorized municipal accounts. Please sign in to access dispatcher tools.
+                      </p>
+                      <button
+                        onClick={() => setShowAuthModal(true)}
+                        aria-label="Sign in to access SLA Dispatch tools"
+                        className="mt-6 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-rose-500/20"
+                      >
+                        Sign In to Continue
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* 5. Leaderboard Tab */}
+              {activeTab === 'leaderboard' && (
+                <motion.div
+                  key="leaderboard"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  {currentUser ? (
+                    <GamificationLeaderboard 
+                      currentUser={currentUser}
+                      usersList={usersList}
+                    />
+                  ) : (
+                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-500 to-yellow-500" />
+                      <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-bold text-white font-display">Hero Center</h3>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Track community impact scores, unlock badges, and rise in ranks! Sign in to view your profile and the citizen leaderboard.
+                      </p>
+                      <button
+                        onClick={() => setShowAuthModal(true)}
+                        aria-label="Sign in to view Hero leaderboard"
+                        className="mt-6 px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-amber-500/20"
+                      >
+                        Sign In to Continue
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* 6. Dashboard SLA Tab */}
+              {activeTab === 'dashboard' && (
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <SlaDashboard issues={issues} usersList={usersList} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
  
@@ -863,12 +919,140 @@ export default function App() {
       <footer className="relative z-10 max-w-7xl mx-auto px-4 py-8 mt-12 text-center text-xs text-slate-400 border-t border-slate-200/30 dark:border-slate-800/30">
         <p>© 2026 Community Hero Civic Platform.</p>
         <p className="mt-1 opacity-60">Ensuring accountability and transparency in municipal services.</p>
+        <div className="mt-3 flex items-center justify-center gap-4 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+          <button 
+            onClick={() => { setPolicyTab('privacy'); setShowPolicyModal(true); }}
+            className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+          >
+            Privacy Policy
+          </button>
+          <span className="opacity-40 text-slate-300 dark:text-slate-700">•</span>
+          <button 
+            onClick={() => { setPolicyTab('terms'); setShowPolicyModal(true); }}
+            className="hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+          >
+            Terms of Service
+          </button>
+        </div>
       </footer>
+
+      {/* ------------------ FLOATING PRIVACY POLICY & TOS MODAL OVERLAY ------------------ */}
+      {showPolicyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden animate-scaleIn">
+            
+            {/* Header Tabs */}
+            <div className="flex border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 px-6 pt-5 pb-0">
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setPolicyTab('privacy')}
+                  className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                    policyTab === 'privacy' 
+                      ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' 
+                      : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Privacy Policy
+                </button>
+                <button
+                  onClick={() => setPolicyTab('terms')}
+                  className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                    policyTab === 'terms' 
+                      ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' 
+                      : 'border-transparent text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Terms of Service
+                </button>
+              </div>
+              <button 
+                onClick={() => setShowPolicyModal(false)}
+                className="ml-auto text-gray-400 hover:text-gray-900 dark:hover:text-white pb-3 transition-all cursor-pointer font-black text-sm"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Scrollable Policy Content */}
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              {policyTab === 'privacy' ? (
+                <>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Community Hero Privacy & Geolocation Policy
+                  </h3>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-mono">
+                    Last Updated: June 2026
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <p>
+                      <strong>1. Overview:</strong> Community Hero is committed to protecting your privacy while enabling hyper-local civic problem-solving. This document describes how we capture, encrypt, and store spatial landmarks and community reporting imagery.
+                    </p>
+                    <p>
+                      <strong>2. Geolocation & Spatial Data:</strong> To verify issue veracity and cluster nearby problems, the application dynamically reads device-level GPS coordinates. This spatial telemetry is converted into coordinates on your regional map and stored in secure database collections. We do not track your location in the background.
+                    </p>
+                    <p>
+                      <strong>3. Photographic Submissions:</strong> Hazard photos uploaded via the <em>Issue Reporter</em> are evaluated by the local Computer Vision API to categorize safety threats. Any personnel faces, license plates, or identifying personal information detected in photos are automatically obfuscated on high-resolution maps.
+                    </p>
+                    <p>
+                      <strong>4. Data Security & Storage:</strong> Account profiles and contribution scoring logs are persisted securely within Cloud Firestore database infrastructure. Passwords and credentials are managed using Firebase Authentication's industry-grade cryptographic keys.
+                    </p>
+                    <p>
+                      <strong>5. Your Rights & Whistleblower Protections:</strong> You may request complete deletion of your account record and reported issues at any time. Active citizens who wish to file reports of public corruption or sensitive municipal neglect are safeguarded under our platform's whistleblower protection schemas.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Community Hero Terms of Service & Civic SLA Code
+                  </h3>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-mono">
+                    Last Updated: June 2026
+                  </p>
+
+                  <div className="space-y-3">
+                    <p>
+                      <strong>1. Agreement to Terms:</strong> By accessing the Community Hero platform, you agree to comply with this municipal collaboration agreement. If you do not agree, you are restricted from utilizing our automated routing, voting, or dashboard services.
+                    </p>
+                    <p>
+                      <strong>2. Citizen Conduct & Integrity:</strong> Users are strictly prohibited from reporting fraudulent civic claims, uploading unrelated graphic media, or inputting fake GPS coordinates. AI duplicate checks and local validator algorithms will immediately flag violations.
+                    </p>
+                    <p>
+                      <strong>3. Gamification & Points Rules:</strong> Karma points, solver rank badges (Guardian, Ambassador, Vigilante), and daily patrol multipliers must be earned via authentic actions (valid reports, accurate verification, and true resolutions). Attempting to exploit automated voting or spoof coordinates will result in an immediate Trust Score deduction or permanent block.
+                    </p>
+                    <p>
+                      <strong>4. Municipal Responsibility Limitation:</strong> Community Hero acts as an AI-powered routing gateway. While we programmatically escalate verified issues to department agents and display active SLA timelines, actual physical resolution timelines remain subject to city resources and local safety guidelines.
+                    </p>
+                    <p>
+                      <strong>5. Terminations & Appeals:</strong> Community administrators reserve the right to temporarily freeze community validation privileges for any user found intentionally disrupting local routing flows. Citizens may lodge appeals with our direct escalation routing desk via email.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 dark:bg-slate-950 px-6 py-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <span className="text-[10px] text-gray-400 font-mono">
+                Platform Ver. 2.1.0 • Open Civic License
+              </span>
+              <button
+                onClick={() => setShowPolicyModal(false)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                I Understand
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ------------------ FLOATING AUTH MODAL OVERLAY ------------------ */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border border-white/10 shadow-2xl p-1 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-md bg-slate-900 rounded-2xl border border-white/10 shadow-2xl p-1 overflow-hidden animate-scaleIn">
             <button 
               onClick={() => setShowAuthModal(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-xl transition-all z-50 cursor-pointer"

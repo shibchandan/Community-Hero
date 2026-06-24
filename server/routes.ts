@@ -108,7 +108,9 @@ router.post('/auth/sync', async (req, res) => {
   const sanitizedName = sanitizeInput(name);
   
   // Role-Based Access Enforcement: Default to citizen and prevent privilege escalation payloads
-  const sanitizedRole = role === 'authority' ? 'authority' : 'citizen';
+  // Explicit override: shibchandan11@gmail.com is designated as a civic authority/admin
+  const isTargetAdmin = sanitizedEmail === 'shibchandan11@gmail.com';
+  const sanitizedRole = (role === 'authority' || isTargetAdmin) ? 'authority' : 'citizen';
 
   if (!isValidEmail(sanitizedEmail)) {
     return res.status(400).json({ error: 'A valid email address is required to register and sync.' });
@@ -130,18 +132,18 @@ router.post('/auth/sync', async (req, res) => {
           role: sanitizedRole
         };
       } else {
-        // Create a brand new active citizen
+        // Create a brand new active citizen or authority
         user = {
           id: sanitizedUid,
-          name: sanitizedName || sanitizedEmail.split('@')[0],
+          name: sanitizedName || (isTargetAdmin ? 'Admin Shibchandan' : sanitizedEmail.split('@')[0]),
           email: sanitizedEmail,
           role: sanitizedRole,
-          points: 40, // 40 starting karma points
+          points: isTargetAdmin ? 500 : 40, // Special points for admin
           trust_score: 100,
-          badges: ['Civic Recruit'],
-          completed_reports: 0,
-          validations_count: 0,
-          area: 'San Francisco'
+          badges: isTargetAdmin ? ['SLA Champion', 'Civic Mentor', 'City Administrator'] : ['Civic Recruit'],
+          completed_reports: isTargetAdmin ? 12 : 0,
+          validations_count: isTargetAdmin ? 45 : 0,
+          area: isTargetAdmin ? 'City-Wide Authority' : 'San Francisco'
         };
       }
       await saveUser(user);
@@ -388,12 +390,12 @@ router.post('/issues', async (req, res) => {
         if (descLower.includes('trash') || descLower.includes('dump') || descLower.includes('garbage') || descLower.includes('litter') || descLower.includes('waste')) {
           finalCategory = 'garbage';
           finalDepartment = 'Sanitation & Waste Disposal Department';
+        } else if (descLower.includes('pipe') || descLower.includes('leak') || descLower.includes('water') || descLower.includes('burst') || descLower.includes('flood') || descLower.includes('waterlogged') || descLower.includes('waterlogging')) {
+          finalCategory = 'water';
+          finalDepartment = 'Urban Water Resources Board';
         } else if (descLower.includes('pothole') || descLower.includes('crack') || descLower.includes('asphalt') || descLower.includes('road') || descLower.includes('driveway')) {
           finalCategory = 'road';
           finalDepartment = 'Municipal Highway & Roads Division';
-        } else if (descLower.includes('pipe') || descLower.includes('leak') || descLower.includes('water') || descLower.includes('burst') || descLower.includes('flood')) {
-          finalCategory = 'water';
-          finalDepartment = 'Urban Water Resources Board';
         } else if (descLower.includes('light') || descLower.includes('lamp') || descLower.includes('bulb') || descLower.includes('darkness') || descLower.includes('electric')) {
           finalCategory = 'streetlight';
           finalDepartment = 'Public Lighting & Electricity Authority';

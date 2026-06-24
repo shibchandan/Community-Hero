@@ -1,9 +1,10 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, ReactNode } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signInWithPopup, 
-  signOut 
+  signOut,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { motion } from 'motion/react';
@@ -23,7 +24,36 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ReactNode | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Please enter your email address in the field below first, then click "Forgot Password?".');
+      setSuccessMessage(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage(`A secure password reset link has been successfully dispatched to ${email}. Please check your inbox.`);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      let friendlyMessage = err.message;
+      if (err.code === 'auth/user-not-found') {
+        friendlyMessage = 'No registered citizen profile was found matching this email address.';
+      } else if (err.code === 'auth/invalid-email') {
+        friendlyMessage = 'The email address format is invalid.';
+      } else if (err.code === 'auth/too-many-requests') {
+        friendlyMessage = 'Too many requests. Please try again later.';
+      }
+      setError(friendlyMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Sync the authenticated Firebase user with our Express backend database
   const syncWithBackend = async (firebaseUser: any, nameToUse?: string) => {
@@ -50,6 +80,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       if (isLogin) {
@@ -65,19 +96,37 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
       onAuthSuccess();
     } catch (err: any) {
       console.error(err);
-      let friendlyMessage = err.message;
-      if (err.code === 'auth/email-already-in-use') {
-        friendlyMessage = 'This email is already registered. Please log in instead.';
-      } else if (err.code === 'auth/wrong-password') {
-        friendlyMessage = 'Incorrect password. Please try again.';
-      } else if (err.code === 'auth/user-not-found') {
-        friendlyMessage = 'No account found with this email.';
-      } else if (err.code === 'auth/invalid-email') {
-        friendlyMessage = 'Please enter a valid email address.';
-      } else if (err.code === 'auth/weak-password') {
-        friendlyMessage = 'Password should be at least 6 characters.';
+      if (err.code === 'auth/operation-not-allowed') {
+        const projectId = auth.app.options.projectId || 'analytical-scout-vqvh5';
+        setError(
+          <div className="space-y-2 text-xs text-left w-full">
+            <p className="font-bold text-red-400">Email/Password Sign-In is Disabled</p>
+            <p className="text-gray-300 leading-normal">
+              The <strong>Email/Password</strong> authentication provider is not enabled in your Firebase console.
+            </p>
+            <div className="p-3 bg-black/30 rounded-lg border border-red-500/10 space-y-1.5 text-gray-400">
+              <p className="font-bold text-gray-300">How to enable it:</p>
+              <p>1. Open your <a href={`https://console.firebase.google.com/project/${projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Firebase Auth Console ↗</a>.</p>
+              <p>2. Under the <strong>Sign-in method</strong> tab, click <strong>"Add new provider"</strong>.</p>
+              <p>3. Select <strong>"Email/Password"</strong> and switch the <strong>Enable</strong> toggle ON, then click <strong>Save</strong>.</p>
+            </div>
+          </div>
+        );
+      } else {
+        let friendlyMessage = err.message;
+        if (err.code === 'auth/email-already-in-use') {
+          friendlyMessage = 'This email is already registered. Please log in instead.';
+        } else if (err.code === 'auth/wrong-password') {
+          friendlyMessage = 'Incorrect password. Please try again.';
+        } else if (err.code === 'auth/user-not-found') {
+          friendlyMessage = 'No account found with this email.';
+        } else if (err.code === 'auth/invalid-email') {
+          friendlyMessage = 'Please enter a valid email address.';
+        } else if (err.code === 'auth/weak-password') {
+          friendlyMessage = 'Password should be at least 6 characters.';
+        }
+        setError(friendlyMessage);
       }
-      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -86,18 +135,37 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
       await syncWithBackend(userCredential.user);
       onAuthSuccess();
     } catch (err: any) {
       console.error('Google Auth Error:', err);
-      // Fallback or warning if in a nested iframe where popups are blocked
-      setError(
-        err.message?.includes('popup-blocked') || err.code === 'auth/popup-blocked-by-browser'
-          ? 'Google Authentication popup was blocked. Please open the app in a new tab using the button in the top right, or register with Email & Password instead.'
-          : err.message || 'Failed to authenticate via Google.'
-      );
+      if (err.code === 'auth/operation-not-allowed') {
+        const projectId = auth.app.options.projectId || 'analytical-scout-vqvh5';
+        setError(
+          <div className="space-y-2 text-xs text-left w-full">
+            <p className="font-bold text-red-400">Google Sign-In is Disabled</p>
+            <p className="text-gray-300 leading-normal">
+              The <strong>Google</strong> authentication provider is not enabled in your Firebase console.
+            </p>
+            <div className="p-3 bg-black/30 rounded-lg border border-red-500/10 space-y-1.5 text-gray-400">
+              <p className="font-bold text-gray-300">How to enable it:</p>
+              <p>1. Open your <a href={`https://console.firebase.google.com/project/${projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Firebase Auth Console ↗</a>.</p>
+              <p>2. Under the <strong>Sign-in method</strong> tab, click <strong>"Add new provider"</strong>.</p>
+              <p>3. Select <strong>"Google"</strong> and switch the <strong>Enable</strong> toggle ON, then click <strong>Save</strong>.</p>
+            </div>
+          </div>
+        );
+      } else {
+        // Fallback or warning if in a nested iframe where popups are blocked
+        setError(
+          err.message?.includes('popup-blocked') || err.code === 'auth/popup-blocked-by-browser'
+            ? 'Google Authentication popup was blocked. Please open the app in a new tab using the button in the top right, or register with Email & Password instead.'
+            : err.message || 'Failed to authenticate via Google.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -135,7 +203,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         <div className="flex rounded-xl bg-white/5 p-1 mb-6 border border-white/10">
           <button
             type="button"
-            onClick={() => { setIsLogin(true); setError(null); }}
+            onClick={() => { setIsLogin(true); setError(null); setSuccessMessage(null); }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               isLogin 
                 ? 'bg-indigo-600 text-white shadow-md' 
@@ -146,7 +214,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           </button>
           <button
             type="button"
-            onClick={() => { setIsLogin(false); setError(null); }}
+            onClick={() => { setIsLogin(false); setError(null); setSuccessMessage(null); }}
             className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               !isLogin 
                 ? 'bg-indigo-600 text-white shadow-md' 
@@ -165,6 +233,17 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           >
             <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <span className="leading-relaxed">{error}</span>
+          </motion.div>
+        )}
+
+        {successMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 flex items-start gap-2.5 animate-fadeIn"
+          >
+            <span className="text-base shrink-0">✉️</span>
+            <span className="leading-relaxed">{successMessage}</span>
           </motion.div>
         )}
 
@@ -220,13 +299,24 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               </div>
               <input
                 type="password"
-                required
+                required={isLogin} // Optional if doing password-less reset
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
               />
             </div>
+            {isLogin && (
+              <div className="flex justify-end mt-1.5">
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-all"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
           </div>
 
           <button
