@@ -3,7 +3,7 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Detect if running in local/mock mode (no real Firebase project)
-const isLocalMode = !firebaseConfig.projectId || firebaseConfig.projectId === 'mock-project';
+export const isLocalMode = !firebaseConfig.projectId || firebaseConfig.projectId === 'mock-project';
 
 // Initialize Firebase App (safe even with mock config)
 const app = initializeApp(firebaseConfig);

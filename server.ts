@@ -28,8 +28,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allowed for Vite dev/inline scripts
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://*.openstreetmap.org", "https://*.tile.openstreetmap.org", "https://nominatim.openstreetmap.org"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://*.openstreetmap.org", "https://*.tile.openstreetmap.org", "https://nominatim.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://basemaps.cartocdn.com", "https://server.arcgisonline.com", "https://*.arcgisonline.com"],
       connectSrc: ["'self'", "https://nominatim.openstreetmap.org", "ws:", "wss:"], // WebSockets for dev and external APIs
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],

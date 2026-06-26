@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from './lib/firebase';
+import { auth, db, isLocalMode } from './lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import AuthPage from './components/AuthPage';
@@ -193,6 +193,18 @@ export default function App() {
         }, 5000);
       }
     };
+
+    if (isLocalMode) {
+      console.log("Running in local mode: skipping live Firestore listeners, using REST API polling fallback.");
+      syncState();
+      startPollingFallback();
+      setLoading(false);
+      return () => {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+        }
+      };
+    }
 
     const qIssues = collection(db, 'issues');
     const unsubscribeIssues = onSnapshot(qIssues, (snapshot) => {
