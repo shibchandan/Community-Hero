@@ -2,7 +2,6 @@ import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { 
   getUsers,
   saveUser,
@@ -17,22 +16,7 @@ import {
   saveCredential
 } from './db';
 import { ai } from './gemini';
-import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus, Broadcast } from '../src/types';
-import { processWhatsAppMessage, buildTwiMLResponse } from './whatsapp';
-import { evaluateSensorThreshold, generateSimulatedSensorEvent, SensorPayload } from './iot';
-import { recordResolutionOnLedger, getAllLedgerRecords, verifyLedgerIntegrity } from './blockchain';
-
-const BROADCASTS_PATH = path.join(process.cwd(), 'server', 'data_broadcasts.json');
-
-function readBroadcasts(): Broadcast[] {
-  try {
-    if (fs.existsSync(BROADCASTS_PATH)) return JSON.parse(fs.readFileSync(BROADCASTS_PATH, 'utf8'));
-  } catch { /* ignore */ }
-  return [];
-}
-function writeBroadcasts(broadcasts: Broadcast[]) {
-  fs.writeFileSync(BROADCASTS_PATH, JSON.stringify(broadcasts, null, 2));
-}
+import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus } from '../src/types';
 
 const router = Router();
 
@@ -497,7 +481,7 @@ router.post('/issues', actionLimiter, async (req, res) => {
       try {
         console.log(`Analyzing issue with Gemini AI using gemini-3.5-flash...`);
         let aiPrompt = `
-          You are an expert Civic Intelligence & AI Categorization system for "Samadhan Setu".
+          You are an expert Civic Intelligence & AI Categorization system for "Community Hero".
           Analyze the following civic complaint report:
           Description: "${description}"
           User Selected Category: "${finalCategory}"
@@ -590,7 +574,7 @@ router.post('/issues', actionLimiter, async (req, res) => {
         title: 'AI Verification Completed',
         description: `Auto-categorized as "${finalCategory}" with ${finalSeverity} severity. Department routed: ${finalDepartment}.`,
         timestamp: new Date().toISOString(),
-        by: 'Samadhan Setu AI'
+        by: 'Community Hero AI'
       }
     ];
 
@@ -601,7 +585,7 @@ router.post('/issues', actionLimiter, async (req, res) => {
         title: 'Potential Duplicate Flagged',
         description: `A similar active issue is already reported within 200m (ID: ${duplicateOfId}). Linking for consolidation.`,
         timestamp: new Date().toISOString(),
-        by: 'Samadhan Setu AI'
+        by: 'Community Hero AI'
       });
     }
 
@@ -719,7 +703,7 @@ router.post('/issues/:id/vote', async (req, res) => {
         title: 'Community Verified!',
         description: 'The issue achieved sufficient confidence voting consensus and is now routed to the official departmental queue.',
         timestamp: new Date().toISOString(),
-        by: 'Samadhan Setu Platform'
+        by: 'Community Hero Platform'
       });
 
       const users = await getUsers();
@@ -881,10 +865,6 @@ router.post('/issues/:id/status', async (req, res) => {
 
     await saveIssue(issue);
     auditLog('ISSUE_STATUS_CHANGED', currentSession.id, { issueId: id, from: prevStatus, to: status, notes: cleanNotes }, req);
-    // Record on blockchain ledger when issue is resolved
-    if (status === 'resolved') {
-      try { recordResolutionOnLedger(issue); } catch (e) { console.error('Ledger write failed:', e); }
-    }
     res.json(issue);
   } catch (err) {
     console.error('Error updating status:', err);
@@ -972,186 +952,3 @@ router.get('/predictive/risks', (req, res) => {
 });
 
 export { router };
-
-// ═══════════════════════════════════════════════════════════════
-// FEATURE 1: WHATSAPP / SMS CHATBOT (Twilio Webhook)
-// ═══════════════════════════════════════════════════════════════
-
-// POST /api/whatsapp/webhook  — Twilio sends incoming messages here
-router.post('/whatsapp/webhook', (req, res) => {
-  const body = req.body?.Body || '';
-  const from = req.body?.From || 'unknown';
-  const mediaUrl = req.body?.MediaUrl0;
-  const reply = processWhatsAppMessage(from, body, mediaUrl);
-  res.set('Content-Type', 'text/xml');
-  res.send(buildTwiMLResponse(reply));
-});
-
-// POST /api/whatsapp/test  — Simulate a WhatsApp message from the UI
-router.post('/whatsapp/test', (req, res) => {
-  const { message, from } = req.body;
-  if (!message || !from) return res.status(400).json({ error: 'message and from are required.' });
-  const reply = processWhatsAppMessage(from, message, undefined);
-  res.json({ reply, from, message });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// FEATURE 2: IOT SENSOR NETWORK
-// ═══════════════════════════════════════════════════════════════
-
-// POST /api/iot/sensor-event  — Real sensors push data here
-router.post('/iot/sensor-event', async (req, res) => {
-  const payload: SensorPayload = req.body;
-  if (!payload.sensorType || payload.value === undefined || !payload.location) {
-    return res.status(400).json({ error: 'sensorType, value, and location are required.' });
-  }
-
-  const result = evaluateSensorThreshold(payload);
-
-  if (!result.breached) {
-    return res.json({ status: 'ok', message: 'Sensor reading within safe thresholds.', payload, result });
-  }
-
-  // Auto-create a civic issue from the sensor alert
-  let autoIssue: Issue | null = null;
-  try {
-    const issues = await getIssues();
-    const newIssue: Issue = {
-      id: 'issue_iot_' + Date.now(),
-      category: result.issueCategory,
-      title: result.title,
-      description: `[IoT AUTO-ALERT] Sensor ${payload.sensorId} at ${payload.location.address}. ${result.description}`,
-      status: 'ai_verified',
-      location: payload.location,
-      severity: result.severity,
-      createdAt: new Date().toISOString(),
-      reportedBy: 'iot_system',
-      reportedByName: 'IoT Sensor Network',
-      mediaUrl: '',
-      department: result.issueCategory === 'water' ? 'Jal Board' : result.issueCategory === 'road' ? 'PWD' : result.issueCategory === 'streetlight' ? 'BSES/DESU' : 'Municipal Corporation',
-      upvotes: 0, downvotes: 0, votedUsers: {}, comments: [],
-      timeline: [{ id: 'tl_iot_1', status: 'ai_verified', title: 'IoT Sensor Alert', description: `Automated alert from sensor ${payload.sensorId}. Value: ${payload.value} ${payload.unit}.`, timestamp: new Date().toISOString(), by: 'IoT System' }],
-      slaDays: result.severity === 'high' ? 1 : 3,
-      escalated: result.severity === 'high', escalationDate: result.severity === 'high' ? new Date().toISOString() : null,
-      resolutionProofUrl: null, resolutionNotes: null, resolvedAt: null,
-    };
-    issues.push(newIssue);
-    await saveIssue(newIssue);
-    autoIssue = newIssue;
-  } catch (e) {
-    console.error('IoT auto-issue creation failed:', e);
-  }
-
-  res.json({ status: 'alert', message: 'Threshold breached! Issue auto-created.', payload, result, autoIssue });
-});
-
-// GET /api/iot/simulate  — Generate a random sensor event for demo
-router.get('/iot/simulate', async (req, res) => {
-  const breach = req.query.breach !== 'false';
-  const payload = generateSimulatedSensorEvent(breach);
-
-  // Forward to the sensor-event handler logic inline
-  const result = evaluateSensorThreshold(payload);
-  let autoIssue = null;
-  if (result.breached) {
-    try {
-      const newIssue: Issue = {
-        id: 'issue_iot_' + Date.now(),
-        category: result.issueCategory,
-        title: result.title,
-        description: `[IoT SIMULATION] Sensor ${payload.sensorId}. ${result.description}`,
-        status: 'ai_verified',
-        location: payload.location,
-        severity: result.severity,
-        createdAt: new Date().toISOString(),
-        reportedBy: 'iot_system',
-        reportedByName: 'IoT Sensor Network',
-        mediaUrl: '',
-        department: 'Municipal Corporation',
-        upvotes: 0, downvotes: 0, votedUsers: {}, comments: [],
-        timeline: [{ id: 'tl_iot_sim_1', status: 'ai_verified', title: 'IoT Simulation Alert', description: `Simulated sensor event from ${payload.sensorId}.`, timestamp: new Date().toISOString(), by: 'IoT Simulator' }],
-        slaDays: result.severity === 'high' ? 1 : 3,
-        escalated: result.severity === 'high', escalationDate: null,
-        resolutionProofUrl: null, resolutionNotes: null, resolvedAt: null,
-      };
-      await saveIssue(newIssue);
-      autoIssue = newIssue;
-    } catch (e) {
-      console.error('Simulation issue save failed:', e);
-    }
-  }
-  res.json({ status: result.breached ? 'alert' : 'ok', payload, result, autoIssue });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// FEATURE 3: EMERGENCY BROADCAST SYSTEM
-// ═══════════════════════════════════════════════════════════════
-
-// GET /api/broadcasts/active  — Fetch all non-expired broadcasts
-router.get('/broadcasts/active', (req, res) => {
-  const now = new Date().toISOString();
-  const all = readBroadcasts();
-  const active = all.filter(b => b.active && b.expiresAt > now);
-  res.json(active);
-});
-
-// GET /api/broadcasts  — Fetch all broadcasts (admin)
-router.get('/broadcasts', (req, res) => {
-  res.json(readBroadcasts());
-});
-
-// POST /api/broadcasts  — Create a new broadcast (authority only)
-router.post('/broadcasts', async (req, res) => {
-  const { title, message, severity, targetZone, durationMinutes } = req.body;
-  if (!title || !message || !severity || !targetZone) {
-    return res.status(400).json({ error: 'title, message, severity, and targetZone are required.' });
-  }
-  const allowedSeverities = ['info', 'warning', 'critical'];
-  if (!allowedSeverities.includes(severity)) {
-    return res.status(400).json({ error: 'Invalid severity. Must be info, warning, or critical.' });
-  }
-  const session = await getCurrentSession();
-  const expiresAt = new Date(Date.now() + (Number(durationMinutes) || 60) * 60 * 1000).toISOString();
-  const broadcast: Broadcast = {
-    id: 'broadcast_' + Date.now(),
-    title: title.slice(0, 120),
-    message: message.slice(0, 500),
-    severity,
-    targetZone,
-    createdBy: session?.name || 'Authority',
-    createdAt: new Date().toISOString(),
-    expiresAt,
-    active: true,
-  };
-  const all = readBroadcasts();
-  all.push(broadcast);
-  writeBroadcasts(all);
-  auditLog('BROADCAST_CREATED', session?.id || 'unknown', { title, severity, targetZone }, req);
-  res.status(201).json(broadcast);
-});
-
-// DELETE /api/broadcasts/:id  — Deactivate a broadcast
-router.delete('/broadcasts/:id', async (req, res) => {
-  const all = readBroadcasts();
-  const idx = all.findIndex(b => b.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Broadcast not found.' });
-  all[idx].active = false;
-  writeBroadcasts(all);
-  res.json({ success: true });
-});
-
-// ═══════════════════════════════════════════════════════════════
-// FEATURE 4: BLOCKCHAIN VERIFICATION LEDGER
-// ═══════════════════════════════════════════════════════════════
-
-// GET /api/ledger  — Public ledger of all resolved issues
-router.get('/ledger', (req, res) => {
-  const records = getAllLedgerRecords();
-  res.json(records);
-});
-
-// GET /api/ledger/verify  — Verify the integrity of the entire chain
-router.get('/ledger/verify', (req, res) => {
-  const result = verifyLedgerIntegrity();
-  res.json(result);
-});

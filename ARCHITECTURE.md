@@ -21,10 +21,6 @@ graph TD
     subgraph External ["External Services"]
         Firestore[("Firebase Firestore<br/>(Persistence)")]
         Gemini["Google Gemini<br/>(AI Analysis)"]
-        WhatsApp["Twilio WhatsApp API<br/>(SMS/Chatbot)"]
-        IoT["IoT City Sensors<br/>(MQTT/Webhooks)"]
-        Blockchain["Ethereum/Polygon<br/>(Web3 Ledger)"]
-        PushAPI["Firebase Cloud Messaging<br/>(Emergency Broadcasts)"]
     end
 
     Client -- "HTTP/REST Requests" --> RateLimiter
@@ -37,11 +33,6 @@ graph TD
     AI_Integration -- "API Call" --> Gemini
     Gemini -- "Categorization & Severity" --> AI_Integration
     IssueLogic -- "CRUD Issues" --> Firestore
-    
-    WhatsApp -- "Citizen Reports via Chat" --> Router
-    IoT -- "Automated Environmental Alerts" --> Router
-    IssueLogic -- "Record Resolution Proof" --> Blockchain
-    IssueLogic -- "Trigger Zonal Alerts" --> PushAPI
 ```
 
 ## 2. Frontend Component Architecture

@@ -536,7 +536,7 @@ export default function IssueReporter({
                 AI-Powered Civic Reporter
               </h2>
               <p className={`text-xs mt-0.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
-                Samadhan Setu AI classifies, checks duplicates, and logs your ticket immediately.
+                Community Hero AI classifies, checks duplicates, and logs your ticket immediately.
               </p>
             </div>
           </div>
@@ -809,7 +809,7 @@ export default function IssueReporter({
                 className="w-full py-3 px-5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
               >
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                Analyze & Report with Samadhan Setu AI
+                Analyze & Report with Community Hero AI
               </button>
             </form>
           )}
@@ -870,7 +870,7 @@ export default function IssueReporter({
                 </div>
 
                 <p className="text-[10px] text-white/70 italic mt-2.5 max-w-xs leading-relaxed">
-                  "Hello, this is the Samadhan Setu Automated Civic Desk. Your current location sector '{activeArea}' is synchronized."
+                  "Hello, this is the Community Hero Automated Civic Desk. Your current location sector '{activeArea}' is synchronized."
                 </p>
 
                 <button

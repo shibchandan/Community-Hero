@@ -2,10 +2,10 @@ import { useState, FormEvent, ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { 
   Sparkles, Mail, Lock, User, AlertTriangle, 
-  Loader2, Shield, ArrowRight, Chrome, Eye, EyeOff
+  Loader2, Shield, ArrowRight, Chrome
 } from 'lucide-react';
 import { auth, googleProvider } from '../lib/firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, updateProfile, signInWithPopup } from 'firebase/auth';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
@@ -17,7 +17,6 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ReactNode | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -41,32 +40,23 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
     setSuccessMessage(null);
 
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const body = isLogin
-        ? { email: email.trim(), password }
-        : { email: email.trim(), password, name: displayName.trim() };
+      if (!auth) throw new Error("Firebase Auth is not initialized. Please configure API keys.");
 
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Authentication failed. Please try again.');
-        return;
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+        onAuthSuccess();
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName });
+        await sendEmailVerification(userCredential.user);
+        setSuccessMessage(`A verification link has been sent to ${email}. Please check your inbox.`);
+        // Note: we don't call onAuthSuccess immediately here if we want them to verify first.
+        // But for simplicity in this sandbox, we'll let them in or rely on onAuthStateChanged in App.tsx.
+        onAuthSuccess();
       }
-
-      // Success — persist session and notify parent
-      if (data.user) {
-        localStorage.setItem('civic_hero_session', JSON.stringify(data.user));
-      }
-      onAuthSuccess();
     } catch (err: any) {
-      console.error('Auth Error:', err);
-      setError('🌐 Network error — could not reach the authentication server. Make sure the dev server is running.');
+      console.error(err);
+      setError(err.message || 'An error occurred during authentication.');
     } finally {
       setLoading(false);
     }
@@ -109,7 +99,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
             <Sparkles className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-3xl font-extrabold font-display text-white tracking-tight">
-            Samadhan Setu
+            Community Hero
           </h1>
           <p className="text-xs text-blue-400 font-semibold uppercase tracking-wider mt-1">
             Civic Intelligence Engine
@@ -214,25 +204,13 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                   <Lock className="w-4 h-4 text-gray-500" />
                 </div>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type="password"
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full text-sm pl-10 pr-10 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
               </div>
               {isLogin && (
                 <div className="flex justify-end mt-1.5">
