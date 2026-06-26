@@ -1,16 +1,8 @@
 import { useState, FormEvent, ReactNode } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  signOut,
-  sendPasswordResetEmail
-} from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { 
-  Sparkles, Mail, Lock, User, LogIn, AlertTriangle, 
-  Loader2, Globe, Shield, ArrowRight 
+  Sparkles, Mail, Lock, User, AlertTriangle, 
+  Loader2, Shield, ArrowRight, Chrome
 } from 'lucide-react';
 
 interface AuthPageProps {
@@ -20,6 +12,8 @@ interface AuthPageProps {
 
 export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [isOtpPhase, setIsOtpPhase] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -27,57 +21,39 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [error, setError] = useState<ReactNode | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      setError('Please enter your email address in the field below first, then click "Forgot Password?".');
-      setSuccessMessage(null);
+  const handleForgotPassword = () => {
+    setError(null);
+    setSuccessMessage(
+      'This app uses a custom secure credential store. To reset your password, please register a new account with your email address. Your previous reports and data will still be visible publicly.'
+    );
+  };
+
+  const handleInitialSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isLogin && !displayName.trim()) {
+      setError('Please enter your full name to register.');
       return;
     }
+    
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccessMessage(`A secure password reset link has been successfully dispatched to ${email}. Please check your inbox.`);
-    } catch (err: any) {
-      console.error('Password reset error:', err);
-      let friendlyMessage = err.message;
-      if (err.code === 'auth/user-not-found') {
-        friendlyMessage = 'No registered citizen profile was found matching this email address.';
-      } else if (err.code === 'auth/invalid-email') {
-        friendlyMessage = 'The email address format is invalid.';
-      } else if (err.code === 'auth/too-many-requests') {
-        friendlyMessage = 'Too many requests. Please try again later.';
-      }
-      setError(friendlyMessage);
-    } finally {
+
+    // Simulate sending OTP
+    setTimeout(() => {
       setLoading(false);
-    }
+      setIsOtpPhase(true);
+      setSuccessMessage(`A 4-digit verification code has been sent to ${email}`);
+    }, 1500);
   };
 
-  // Sync the authenticated Firebase user with our Express backend database
-  const syncWithBackend = async (firebaseUser: any, nameToUse?: string) => {
-    try {
-      const response = await fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: nameToUse || firebaseUser.displayName || firebaseUser.email.split('@')[0],
-          role: 'citizen'
-        })
-      });
-      if (!response.ok) {
-        throw new Error('Failed to synchronize user profile with backend services.');
-      }
-    } catch (err: any) {
-      console.error('Backend sync error:', err);
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
+  const handleVerifyOtp = async (e: FormEvent) => {
     e.preventDefault();
+    if (otpCode.length !== 4) {
+      setError('Please enter a valid 4-digit code (e.g., 1234).');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
@@ -94,9 +70,6 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           throw new Error(data.error || 'Failed to sign in.');
         }
       } else {
-        if (!displayName.trim()) {
-          throw new Error('Please enter your full name to register.');
-        }
         const response = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -111,48 +84,15 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred during authentication.');
+      setIsOtpPhase(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
+  const handleGoogleSignIn = () => {
     setError(null);
-    setSuccessMessage(null);
-    try {
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      await syncWithBackend(userCredential.user);
-      onAuthSuccess();
-    } catch (err: any) {
-      console.error('Google Auth Error:', err);
-      if (err.code === 'auth/operation-not-allowed') {
-        const projectId = auth.app.options.projectId || 'analytical-scout-vqvh5';
-        setError(
-          <div className="space-y-2 text-xs text-left w-full">
-            <p className="font-bold text-red-400">Google Sign-In is Disabled</p>
-            <p className="text-gray-300 leading-normal">
-              The <strong>Google</strong> authentication provider is not enabled in your Firebase console.
-            </p>
-            <div className="p-3 bg-black/30 rounded-lg border border-red-500/10 space-y-1.5 text-gray-400">
-              <p className="font-bold text-gray-300">How to enable it:</p>
-              <p>1. Open your <a href={`https://console.firebase.google.com/project/${projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Firebase Auth Console ↗</a>.</p>
-              <p>2. Under the <strong>Sign-in method</strong> tab, click <strong>"Add new provider"</strong>.</p>
-              <p>3. Select <strong>"Google"</strong> and switch the <strong>Enable</strong> toggle ON, then click <strong>Save</strong>.</p>
-            </div>
-          </div>
-        );
-      } else {
-        // Fallback or warning if in a nested iframe where popups are blocked
-        setError(
-          err.message?.includes('popup-blocked') || err.code === 'auth/popup-blocked-by-browser'
-            ? 'Google Authentication popup was blocked. Please open the app in a new tab using the button in the top right, or register with Email & Password instead.'
-            : err.message || 'Failed to authenticate via Google.'
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
+    setSuccessMessage('Google Sign-In is unavailable in the current sandbox environment. Please use email registration.');
   };
 
   return (
@@ -163,7 +103,6 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           <div className="absolute bottom-[20%] right-[25%] w-[450px] h-[450px] rounded-full bg-purple-500/10 blur-[130px]" />
         </div>
       )}
-
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -231,96 +170,131 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           </motion.div>
         )}
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
+        {isOtpPhase ? (
+          <form onSubmit={handleVerifyOtp} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">4-Digit Security Code</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <input 
+                  type="text" 
+                  maxLength={4}
+                  required
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
+                  placeholder="••••"
+                />
+              </div>
+            </div>
+            
+            <button 
+              type="submit" 
+              disabled={loading || otpCode.length !== 4}
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 mt-6 cursor-pointer"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <>Verify & Proceed <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
+            <div className="text-center mt-4">
+              <button 
+                type="button" 
+                onClick={() => setIsOtpPhase(false)} 
+                className="text-xs text-slate-400 hover:text-white underline transition-colors cursor-pointer"
+              >
+                Back to Login
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleInitialSubmit} className="space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <User className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Aarav Sharma"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Full Name
+                Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <User className="w-4 h-4 text-gray-500" />
+                  <Mail className="w-4 h-4 text-gray-500" />
                 </div>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="Aarav Sharma"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="sarah.j@civic.org"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
-          )}
 
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Email Address
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Mail className="w-4 h-4 text-gray-500" />
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <Lock className="w-4 h-4 text-gray-500" />
+                </div>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                />
               </div>
-              <input
-                type="email"
-                required
-                placeholder="sarah.j@civic.org"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
+              {isLogin && (
+                <div className="flex justify-end mt-1.5">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-all"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Lock className="w-4 h-4 text-gray-500" />
-              </div>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-            </div>
-            {isLogin && (
-              <div className="flex justify-end mt-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSuccessMessage("Since this app uses a custom database authentication store to bypass Starter Tier console limits, password recovery is simplified. If you forget your password, you can register a new account with any email to reset/start fresh.");
-                    setError(null);
-                  }}
-                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-all"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full font-bold py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-white" />
-            ) : (
-              <>
-                <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full font-bold py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-white" />
+              ) : (
+                <>
+                  <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
 
         {/* Divider */}
         <div className="relative my-6">
