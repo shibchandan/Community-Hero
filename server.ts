@@ -17,7 +17,7 @@ import { router as apiRouter } from './server/routes';
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Enable 'trust proxy' so Express and express-rate-limit correctly recognize real client IPs behind Cloud Run proxies
 app.set('trust proxy', 1);

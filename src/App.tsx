@@ -22,6 +22,9 @@ import UserProfile from './components/UserProfile';
 import Sidebar from './components/Sidebar';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { CivicBot } from './components/CivicBot';
+import { EmergencyBroadcastBanner } from './components/EmergencyBroadcastBanner';
+import { BlockchainLedger } from './components/BlockchainLedger';
+import { WhatsAppBotDemo } from './components/WhatsAppBotDemo';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, RefreshCw, Layers, Loader2, Menu, X
@@ -90,50 +93,51 @@ export default function App() {
 
   // Monitor Firebase Auth changes (if enabled) and sync with Express database
   useEffect(() => {
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        setFbLoading(true);
-        if (user) {
-          setFbUser(user);
-          try {
-            const response = await fetch('/api/auth/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                uid: user.uid,
-                email: user.email,
-                name: user.displayName || user.email?.split('@')[0],
-                role: 'citizen'
-              })
-            });
-            if (response.ok) {
-              const data = await response.json();
-              setCurrentUser(data.user);
-              await syncState();
-            }
-          } catch (err) {
-            console.error('Failed to sync auth user state with server:', err);
-          }
-        } else {
-          setFbUser(null);
-          setCurrentUser(null);
-        }
-        setFbLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-      // In local/custom auth mode — restore from localStorage immediately,
-      // then validate & refresh from the server in the background
+    // On localhost: skip Firebase Auth listener entirely — use custom server auth
+    if (isLocalMode || !auth) {
       const stored = loadStoredSession();
       if (stored) {
         setCurrentUser(stored);
-        setFbLoading(false); // don't block UI — we already have cached data
-        syncState();          // silently refresh in background
+        setFbLoading(false);
+        syncState(); // silently refresh in background
       } else {
         setFbLoading(true);
         syncState().finally(() => setFbLoading(false));
       }
+      return;
     }
+
+    // Live mode: use Firebase Auth listener
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFbLoading(true);
+      if (user) {
+        setFbUser(user);
+        try {
+          const response = await fetch('/api/auth/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: user.uid,
+              email: user.email,
+              name: user.displayName || user.email?.split('@')[0],
+              role: 'citizen'
+            })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setCurrentUser(data.user);
+            await syncState();
+          }
+        } catch (err) {
+          console.error('Failed to sync auth user state with server:', err);
+        }
+      } else {
+        setFbUser(null);
+        setCurrentUser(null);
+      }
+      setFbLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   // Sync state with the backend database
@@ -461,7 +465,7 @@ export default function App() {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className={`text-sm font-black font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Community Hero</p>
+            <p className={`text-sm font-black font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Samadhan Setu</p>
             <p className={`text-[9px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-cyan-400' : 'text-indigo-500'}`}>Civic Engine</p>
           </div>
         </div>
@@ -644,6 +648,9 @@ export default function App() {
           </div>
         )}
         </div>
+
+        {/* ── Emergency Broadcast Banner ───────────────────────── */}
+        <EmergencyBroadcastBanner theme={theme} />
 
       {/* ------------------ MAIN INTERACTIVE CONTAINER ------------------ */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-6">
@@ -918,6 +925,34 @@ export default function App() {
                 </motion.div>
               )}
 
+              {/* 6.c Blockchain Ledger Tab */}
+              {activeTab === 'ledger' && (
+                <motion.div
+                  key="ledger"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <BlockchainLedger theme={theme} />
+                </motion.div>
+              )}
+
+              {/* 6.d WhatsApp Bot Tab */}
+              {activeTab === 'whatsapp' && (
+                <motion.div
+                  key="whatsapp"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <WhatsAppBotDemo theme={theme} />
+                </motion.div>
+              )}
+
               {/* 7. My Profile Tab */}
               {activeTab === 'profile' && (
                 <motion.div
@@ -969,7 +1004,7 @@ export default function App() {
           : 'bg-white/80 border-indigo-200/50 text-slate-800 shadow-indigo-100/30 shadow-md font-medium'
       }`}>
         <p className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-          © 2026 Community Hero Civic Platform.
+          © 2026 Samadhan Setu Civic Platform.
         </p>
         <p className={`mt-1 text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
           Ensuring accountability and transparency in municipal services.
@@ -1041,7 +1076,7 @@ export default function App() {
               {policyTab === 'privacy' ? (
                 <>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                    Community Hero Privacy & Geolocation Policy
+                    Samadhan Setu Privacy & Geolocation Policy
                   </h3>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-mono">
                     Last Updated: June 2026
@@ -1049,7 +1084,7 @@ export default function App() {
                   
                   <div className="space-y-3">
                     <p>
-                      <strong>1. Overview:</strong> Community Hero is committed to protecting your privacy while enabling hyper-local civic problem-solving. This document describes how we capture, encrypt, and store spatial landmarks and community reporting imagery.
+                      <strong>1. Overview:</strong> Samadhan Setu is committed to protecting your privacy while enabling hyper-local civic problem-solving. This document describes how we capture, encrypt, and store spatial landmarks and community reporting imagery.
                     </p>
                     <p>
                       <strong>2. Geolocation & Spatial Data:</strong> To verify issue veracity and cluster nearby problems, the application dynamically reads device-level GPS coordinates. This spatial telemetry is converted into coordinates on your regional map and stored in secure database collections. We do not track your location in the background.
@@ -1068,7 +1103,7 @@ export default function App() {
               ) : (
                 <>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                    Community Hero Terms of Service & Civic SLA Code
+                    Samadhan Setu Terms of Service & Civic SLA Code
                   </h3>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-mono">
                     Last Updated: June 2026
@@ -1076,7 +1111,7 @@ export default function App() {
 
                   <div className="space-y-3">
                     <p>
-                      <strong>1. Agreement to Terms:</strong> By accessing the Community Hero platform, you agree to comply with this municipal collaboration agreement. If you do not agree, you are restricted from utilizing our automated routing, voting, or dashboard services.
+                      <strong>1. Agreement to Terms:</strong> By accessing the Samadhan Setu platform, you agree to comply with this municipal collaboration agreement. If you do not agree, you are restricted from utilizing our automated routing, voting, or dashboard services.
                     </p>
                     <p>
                       <strong>2. Citizen Conduct & Integrity:</strong> Users are strictly prohibited from reporting fraudulent civic claims, uploading unrelated graphic media, or inputting fake GPS coordinates. AI duplicate checks and local validator algorithms will immediately flag violations.
@@ -1085,7 +1120,7 @@ export default function App() {
                       <strong>3. Gamification & Points Rules:</strong> Karma points, solver rank badges (Guardian, Ambassador, Vigilante), and daily patrol multipliers must be earned via authentic actions (valid reports, accurate verification, and true resolutions). Attempting to exploit automated voting or spoof coordinates will result in an immediate Trust Score deduction or permanent block.
                     </p>
                     <p>
-                      <strong>4. Municipal Responsibility Limitation:</strong> Community Hero acts as an AI-powered routing gateway. While we programmatically escalate verified issues to department agents and display active SLA timelines, actual physical resolution timelines remain subject to city resources and local safety guidelines.
+                      <strong>4. Municipal Responsibility Limitation:</strong> Samadhan Setu acts as an AI-powered routing gateway. While we programmatically escalate verified issues to department agents and display active SLA timelines, actual physical resolution timelines remain subject to city resources and local safety guidelines.
                     </p>
                     <p>
                       <strong>5. Terminations & Appeals:</strong> Community administrators reserve the right to temporarily freeze community validation privileges for any user found intentionally disrupting local routing flows. Citizens may lodge appeals with our direct escalation routing desk via email.

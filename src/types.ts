@@ -91,3 +91,51 @@ export interface LeaderboardUser {
   area: string;
   badges_count: number;
 }
+
+// ─── IoT Sensor Types ────────────────────────────────────────────
+export type SensorType = 'flood' | 'air_quality' | 'noise' | 'temperature' | 'pothole_vibration' | 'streetlight_outage';
+
+export interface IoTAlert {
+  id: string;
+  sensorId: string;
+  sensorType: SensorType;
+  value: number;
+  unit: string;
+  severity: 'medium' | 'high';
+  location: LocationInfo;
+  autoIssueId?: string;  // ID of the issue auto-created from this alert
+  timestamp: string;
+}
+
+// ─── Emergency Broadcast Types ───────────────────────────────────
+export type BroadcastSeverity = 'info' | 'warning' | 'critical';
+
+export interface Broadcast {
+  id: string;
+  title: string;
+  message: string;
+  severity: BroadcastSeverity;
+  targetZone: string;   // e.g. 'All Zones', 'Sector 12', etc.
+  createdBy: string;
+  createdAt: string;
+  expiresAt: string;    // ISO timestamp — auto-removed after expiry
+  active: boolean;
+}
+
+// ─── Blockchain Ledger Types ─────────────────────────────────────
+export interface LedgerRecord {
+  id: string;
+  issueId: string;
+  issueTitle: string;
+  resolvedBy: string;
+  resolvedAt: string;
+  category: string;
+  location: string;
+  contentHash: string;
+  previousHash: string;
+  nonce: number;
+  blockNumber: number;
+  network: string;
+  txSimulated: string;
+}
+
