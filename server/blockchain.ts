@@ -27,8 +27,7 @@ export interface LedgerRecord {
   txSimulated: string;    // Simulated transaction ID
 }
 
-const LEDGER_PATH = path.join(__dirname, 'data_ledger.json');
-const GENESIS_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
+
 
 function readLedger(): LedgerRecord[] {
   try {
