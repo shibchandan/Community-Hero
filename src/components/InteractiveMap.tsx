@@ -289,8 +289,19 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
 
         if (isSelected) {
           setTimeout(() => {
-            marker.openPopup();
+            if (!mapRef.current) return;
             map.setView([issue.location.lat, issue.location.lng], Math.max(map.getZoom(), 15));
+            try {
+              L.popup({
+                className: 'custom-leaflet-popup',
+                closeButton: false,
+              })
+              .setLatLng([issue.location.lat, issue.location.lng])
+              .setContent(popupContent)
+              .openOn(map);
+            } catch (e) {
+              console.error("Failed to open popup safely on the map:", e);
+            }
           }, 100);
         }
       });
