@@ -21,7 +21,6 @@ export interface LocationInfo {
   lng: number;
   address: string;
   area: string;
-  city: string;
 }
 
 export interface Comment {

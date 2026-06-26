@@ -382,7 +382,6 @@ router.post('/issues', async (req, res) => {
   const cleanTitle = title ? sanitizeInput(title) : '';
   const cleanAddress = location.address ? sanitizeInput(location.address) : 'Reported Location';
   const cleanArea = location.area ? sanitizeInput(location.area) : 'Metro Area';
-  const cleanCity = location.city ? sanitizeInput(location.city) : 'Unknown City';
 
   // File Upload Type & Size Validation (jpeg, png, webp, gif limit 5MB)
   if (image && !isValidImage(image)) {
@@ -554,8 +553,7 @@ router.post('/issues', async (req, res) => {
         lat,
         lng,
         address: cleanAddress,
-        area: cleanArea,
-        city: cleanCity
+        area: cleanArea
       },
       severity: finalSeverity,
       createdAt: new Date().toISOString(),

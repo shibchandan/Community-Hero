@@ -89,8 +89,6 @@ export default function IssueReporter({
   const [severity, setSeverity] = useState<SeverityLevel>('medium');
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState('Connaught Place Outer Circle, New Delhi, Delhi 110001');
-  const [area, setArea] = useState('Connaught Place');
-  const [city, setCity] = useState('New Delhi');
 
   // Location Options (Auto GPS vs. Manual)
   const [locationMode, setLocationMode] = useState<'auto' | 'manual'>('manual');
@@ -158,30 +156,12 @@ export default function IssueReporter({
     setGeoLoading(true);
     setGeoError(null);
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
+      (position) => {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
         setLat(latitude);
         setLng(longitude);
-        
-        try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-          const data = await res.json();
-          if (data && data.address) {
-            setAddress(data.display_name || `Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-            setCity(data.address.city || data.address.town || data.address.village || data.address.state || 'Unknown City');
-            setArea(data.address.suburb || data.address.neighbourhood || data.address.residential || 'Local Area');
-          } else {
-            setAddress(`Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-            setCity('Unknown City');
-            setArea('Local Area');
-          }
-        } catch (err) {
-          console.error("Reverse geocoding failed", err);
-          setAddress(`Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-          setCity('Unknown City');
-          setArea('Local Area');
-        }
+        setAddress(`Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
         setGeoLoading(false);
       },
       (err) => {
@@ -268,9 +248,8 @@ export default function IssueReporter({
         location: {
           lat: finalLat,
           lng: finalLng,
-          address,
-          area,
-          city
+          address: address,
+          area: activeArea || 'Mission District'
         }
       };
 

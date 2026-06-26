@@ -8,10 +8,6 @@ import { Issue, IssueCategory } from '../types';
 import { Sliders, Eye, Locate, Loader2, Info, Moon, Sun, Globe, Map as MapIcon } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import 'leaflet.markercluster';
-import 'leaflet.heat';
 
 interface InteractiveMapProps {
   issues: Issue[];
@@ -35,8 +31,7 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const markersLayerRef = useRef<L.LayerGroup | any>(null); // any for cluster group
-  const heatLayerRef = useRef<L.Layer | any>(null); // any for heat layer
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
 
   // Geolocation trigger
@@ -182,64 +177,46 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
   // 2. Synchronize Map Markers with filtered issues
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    const markersLayer = markersLayerRef.current;
+    if (!map || !markersLayer) return;
 
-    // Clear existing layers
-    if (markersLayerRef.current) {
-      map.removeLayer(markersLayerRef.current);
-      markersLayerRef.current = null;
-    }
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-      heatLayerRef.current = null;
-    }
+    // Clear existing markers
+    markersLayer.clearLayers();
 
-    if (heatmapMode) {
-      // Feature 9: True Thermal Heatmap Layer
-      const heatPoints = filteredIssues.map(issue => [
-        issue.location.lat, 
-        issue.location.lng, 
-        issue.severity === 'high' ? 1.0 : issue.severity === 'medium' ? 0.6 : 0.3
-      ]);
+    filteredIssues.forEach((issue) => {
+      const isSelected = selectedIssueId === issue.id;
+      const gradient = getCategoryColor(issue.category);
+      const emoji = getCategoryEmoji(issue.category);
+
+      const isHighUrgency = issue.severity === 'high' && issue.status !== 'closed';
+      const isActive = issue.status !== 'closed';
+
+      // Build premium custom interactive HTML markers
+      let markerHtml = '';
       
-      // @ts-ignore - leaflet.heat adds L.heatLayer
-      heatLayerRef.current = L.heatLayer(heatPoints, { 
-        radius: 35, 
-        blur: 25, 
-        maxZoom: 15,
-        gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' }
-      }).addTo(map);
-      
-    } else {
-      // Feature 13: Cluster Markers
-      // @ts-ignore - leaflet.markercluster adds L.markerClusterGroup
-      const clusterGroup = L.markerClusterGroup({
-        chunkedLoading: true,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        maxClusterRadius: 50,
-      });
-
-      filteredIssues.forEach((issue) => {
-        const isSelected = selectedIssueId === issue.id;
-        const gradient = getCategoryColor(issue.category);
-        const emoji = getCategoryEmoji(issue.category);
-        const isHighUrgency = issue.severity === 'high' && issue.status !== 'closed';
-        const isActive = issue.status !== 'closed';
-
+      if (heatmapMode) {
+        // High thermal density representation
+        const heatColor = issue.severity === 'high' ? 'rgba(239, 68, 68, 0.5)' : issue.severity === 'medium' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.3)';
+        markerHtml = `
+          <div class="relative w-16 h-16 rounded-full transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center animate-pulse"
+               style="background: radial-gradient(circle, ${heatColor} 0%, rgba(0,0,0,0) 75%)">
+            <div class="w-3.5 h-3.5 rounded-full ${issue.severity === 'high' ? 'bg-red-500' : issue.severity === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'} ring-4 ring-black border border-white/40 shadow-glow"></div>
+          </div>
+        `;
+      } else {
         // Custom interactive visual radar pins
-        const markerHtml = `
+        markerHtml = `
           <div class="relative flex items-center justify-center w-8 h-8 rounded-full shadow-lg border-2 text-sm transition-all duration-300 ${
             isSelected 
-              ? 'border-indigo-400 scale-125 ring-4 ring-indigo-500/30 z-50' 
-              : 'border-white/90 dark:border-slate-800 scale-100 hover:scale-110'
+              ? 'border-indigo-400 scale-125 ring-4 ring-indigo-500/30' 
+              : 'border-white/90 dark:border-slate-800 scale-100 hover:scale-115'
           } bg-gradient-to-br ${gradient}">
             <span class="select-none text-base">${emoji}</span>
             ${issue.status === 'community_verified' || issue.status === 'resolved' ? `
-              <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white border border-white z-10">✓</span>
+              <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 text-[8px] font-bold text-white border border-white">✓</span>
             ` : ''}
             ${issue.escalated ? `
-              <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-600 text-[7px] font-bold text-white border border-white animate-pulse z-10">🚨</span>
+              <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-600 text-[7px] font-bold text-white border border-white animate-pulse">🚨</span>
             ` : ''}
             ${isHighUrgency ? `
               <div class="absolute inset-0 -m-3 rounded-full bg-red-500/20 animate-ping opacity-60 pointer-events-none"></div>
@@ -249,55 +226,55 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
             ` : ''}
           </div>
         `;
+      }
 
-        const customIcon = L.divIcon({
-          html: markerHtml,
-          className: 'custom-map-pin',
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        });
-
-        const marker = L.marker([issue.location.lat, issue.location.lng], { icon: customIcon });
-
-        const popupContent = `
-          <div class="p-1 min-w-[210px] text-slate-100 font-sans">
-            <div class="flex items-center gap-1.5 mb-1.5 text-[9px] font-bold uppercase tracking-wider">
-              <span class="px-2 py-0.5 rounded text-white bg-gradient-to-r ${gradient}">${issue.category.toUpperCase()}</span>
-              <span class="px-2 py-0.5 rounded text-white ${
-                issue.severity === 'high' ? 'bg-rose-500' : issue.severity === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
-              }">${issue.severity.toUpperCase()}</span>
-            </div>
-            <h4 class="text-xs font-bold text-white mb-1 leading-tight">${issue.title}</h4>
-            <p class="text-[10px] text-slate-300 leading-normal mb-2.5 line-clamp-3">${issue.description}</p>
-            <div class="flex justify-between items-center text-[8px] text-slate-400 border-t border-slate-800 pt-2 mt-1">
-              <span class="truncate max-w-[130px] italic">📍 ${issue.location.address}</span>
-              <span class="text-emerald-400 font-bold ml-1.5 whitespace-nowrap">Score: ${issue.upvotes - issue.downvotes}</span>
-            </div>
-          </div>
-        `;
-
-        marker.bindPopup(popupContent, {
-          className: 'custom-leaflet-popup',
-          closeButton: false,
-        });
-
-        marker.on('click', () => {
-          onSelectIssue(issue);
-        });
-
-        clusterGroup.addLayer(marker);
-
-        if (isSelected) {
-          setTimeout(() => {
-            marker.openPopup();
-            map.setView([issue.location.lat, issue.location.lng], Math.max(map.getZoom(), 15));
-          }, 100);
-        }
+      const customIcon = L.divIcon({
+        html: markerHtml,
+        className: heatmapMode ? 'custom-heat-pin' : 'custom-map-pin',
+        iconSize: heatmapMode ? [64, 64] : [32, 32],
+        iconAnchor: heatmapMode ? [32, 32] : [16, 16],
       });
-      
-      map.addLayer(clusterGroup);
-      markersLayerRef.current = clusterGroup;
-    }
+
+      const marker = L.marker([issue.location.lat, issue.location.lng], { icon: customIcon });
+
+      // Custom popup design matching the app's dark slate look
+      const popupContent = `
+        <div class="p-1 min-w-[210px] text-slate-100 font-sans">
+          <div class="flex items-center gap-1.5 mb-1.5 text-[9px] font-bold uppercase tracking-wider">
+            <span class="px-2 py-0.5 rounded text-white bg-gradient-to-r ${gradient}">${issue.category.toUpperCase()}</span>
+            <span class="px-2 py-0.5 rounded text-white ${
+              issue.severity === 'high' ? 'bg-rose-500' : issue.severity === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+            }">${issue.severity.toUpperCase()}</span>
+          </div>
+          <h4 class="text-xs font-bold text-white mb-1 leading-tight">${issue.title}</h4>
+          <p class="text-[10px] text-slate-300 leading-normal mb-2.5 line-clamp-3">${issue.description}</p>
+          <div class="flex justify-between items-center text-[8px] text-slate-400 border-t border-slate-800 pt-2 mt-1">
+            <span class="truncate max-w-[130px] italic">📍 ${issue.location.address}</span>
+            <span class="text-emerald-400 font-bold ml-1.5 whitespace-nowrap">Score: ${issue.upvotes - issue.downvotes}</span>
+          </div>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent, {
+        className: 'custom-leaflet-popup',
+        closeButton: false,
+      });
+
+      // Synchronize selection back to parent component
+      marker.on('click', () => {
+        onSelectIssue(issue);
+      });
+
+      markersLayer.addLayer(marker);
+
+      // If issue is currently selected, trigger fly-to and open popup!
+      if (isSelected) {
+        setTimeout(() => {
+          marker.openPopup();
+          map.setView([issue.location.lat, issue.location.lng], Math.max(map.getZoom(), 15));
+        }, 100);
+      }
+    });
   }, [filteredIssues, selectedIssueId, heatmapMode, onSelectIssue]);
 
   // 3. User Live Location Marker Synchronization

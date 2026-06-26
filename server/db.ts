@@ -141,8 +141,7 @@ export const DEFAULT_ISSUES: Issue[] = [
       lat: 28.6304,
       lng: 77.2177,
       address: 'Connaught Place Outer Circle, New Delhi, Delhi 110001',
-      area: 'Connaught Place',
-      city: 'New Delhi'
+      area: 'Connaught Place'
     },
     severity: 'high',
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
@@ -231,8 +230,7 @@ export const DEFAULT_ISSUES: Issue[] = [
       lat: 28.6444,
       lng: 77.1900,
       address: 'Padam Singh Rd, Karol Bagh, New Delhi, Delhi 110005',
-      area: 'Karol Bagh',
-      city: 'New Delhi'
+      area: 'Karol Bagh'
     },
     severity: 'high',
     createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
@@ -288,8 +286,7 @@ export const DEFAULT_ISSUES: Issue[] = [
       lat: 28.5812,
       lng: 77.0594,
       address: 'Metro Station Pathway, Dwarka Sector 10, New Delhi, Delhi 110075',
-      area: 'Dwarka',
-      city: 'New Delhi'
+      area: 'Dwarka'
     },
     severity: 'medium',
     createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
