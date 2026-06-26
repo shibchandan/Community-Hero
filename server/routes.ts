@@ -7,10 +7,7 @@ import {
   getIssueById,
   getCurrentSession,
   setCurrentSession,
-  seedIfNeeded,
   getDistanceKm, 
-  DEFAULT_USERS, 
-  DEFAULT_ISSUES,
   hashPassword,
   getCredential,
   saveCredential
@@ -19,13 +16,6 @@ import { ai } from './gemini';
 import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus } from '../src/types';
 
 const router = Router();
-
-// Seed default database state in Firestore if empty
-seedIfNeeded().then(() => {
-  console.log('Database initialization with Firestore complete.');
-}).catch((err) => {
-  console.error('Database initialization with Firestore failed:', err);
-});
 
 // --- Security Validation & Sanitization Helpers ---
 

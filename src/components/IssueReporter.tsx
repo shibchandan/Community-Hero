@@ -262,7 +262,7 @@ export default function IssueReporter({
 
       const payload = {
         description,
-        category: selectedPreset !== null ? IMAGE_PRESETS[selectedPreset].category : category,
+        category,
         severity,
         image: imagePayload,
         location: {
