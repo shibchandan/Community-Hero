@@ -84,49 +84,33 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
     try {
       if (isLogin) {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        await syncWithBackend(userCredential.user);
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to sign in.');
+        }
       } else {
         if (!displayName.trim()) {
           throw new Error('Please enter your full name to register.');
         }
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await syncWithBackend(userCredential.user, displayName);
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name: displayName })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to register account.');
+        }
       }
       onAuthSuccess();
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/operation-not-allowed') {
-        const projectId = auth.app.options.projectId || 'analytical-scout-vqvh5';
-        setError(
-          <div className="space-y-2 text-xs text-left w-full">
-            <p className="font-bold text-red-400">Email/Password Sign-In is Disabled</p>
-            <p className="text-gray-300 leading-normal">
-              The <strong>Email/Password</strong> authentication provider is not enabled in your Firebase console.
-            </p>
-            <div className="p-3 bg-black/30 rounded-lg border border-red-500/10 space-y-1.5 text-gray-400">
-              <p className="font-bold text-gray-300">How to enable it:</p>
-              <p>1. Open your <a href={`https://console.firebase.google.com/project/${projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline font-bold">Firebase Auth Console ↗</a>.</p>
-              <p>2. Under the <strong>Sign-in method</strong> tab, click <strong>"Add new provider"</strong>.</p>
-              <p>3. Select <strong>"Email/Password"</strong> and switch the <strong>Enable</strong> toggle ON, then click <strong>Save</strong>.</p>
-            </div>
-          </div>
-        );
-      } else {
-        let friendlyMessage = err.message;
-        if (err.code === 'auth/email-already-in-use') {
-          friendlyMessage = 'This email is already registered. Please log in instead.';
-        } else if (err.code === 'auth/wrong-password') {
-          friendlyMessage = 'Incorrect password. Please try again.';
-        } else if (err.code === 'auth/user-not-found') {
-          friendlyMessage = 'No account found with this email.';
-        } else if (err.code === 'auth/invalid-email') {
-          friendlyMessage = 'Please enter a valid email address.';
-        } else if (err.code === 'auth/weak-password') {
-          friendlyMessage = 'Password should be at least 6 characters.';
-        }
-        setError(friendlyMessage);
-      }
+      setError(err.message || 'An error occurred during authentication.');
     } finally {
       setLoading(false);
     }
@@ -187,7 +171,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         className={`relative z-10 w-full max-w-md p-8 rounded-2xl bento-card border border-white/10 ${inline ? 'bg-[#0f172a]' : 'shadow-2xl'}`}
       >
         {/* Brand Header */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-3">
             <Sparkles className="w-7 h-7 text-white" />
           </div>
@@ -261,7 +245,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                 <input
                   type="text"
                   required
-                  placeholder="Sarah Jenkins"
+                  placeholder="Aarav Sharma"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -299,7 +283,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               </div>
               <input
                 type="password"
-                required={isLogin} // Optional if doing password-less reset
+                required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -310,7 +294,10 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               <div className="flex justify-end mt-1.5">
                 <button
                   type="button"
-                  onClick={handleForgotPassword}
+                  onClick={() => {
+                    setSuccessMessage("Since this app uses a custom database authentication store to bypass Starter Tier console limits, password recovery is simplified. If you forget your password, you can register a new account with any email to reset/start fresh.");
+                    setError(null);
+                  }}
                   className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-all"
                 >
                   Forgot Password?
@@ -322,7 +309,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full font-bold py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 cursor-pointer disabled:opacity-50"
+            className="w-full font-bold py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin text-white" />
@@ -350,7 +337,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-all cursor-pointer disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-all cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
         >
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
             <path
@@ -376,7 +363,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         {/* Footer info */}
         <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-gray-500 text-center">
           <Shield className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-          <span>Secured by Firebase Authentication (Free Tier)</span>
+          <span>Local credentials secured by Firestore & Node Crypto</span>
         </div>
       </motion.div>
     </div>

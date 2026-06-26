@@ -88,12 +88,12 @@ export default function IssueReporter({
   const [category, setCategory] = useState<IssueCategory>('road');
   const [severity, setSeverity] = useState<SeverityLevel>('medium');
   const [title, setTitle] = useState('');
-  const [address, setAddress] = useState('850 Valencia St, San Francisco, CA 94110');
+  const [address, setAddress] = useState('Connaught Place Outer Circle, New Delhi, Delhi 110001');
 
   // Location Options (Auto GPS vs. Manual)
   const [locationMode, setLocationMode] = useState<'auto' | 'manual'>('manual');
-  const [lat, setLat] = useState<number>(37.7649);
-  const [lng, setLng] = useState<number>(-122.4194);
+  const [lat, setLat] = useState<number>(28.6304);
+  const [lng, setLng] = useState<number>(77.2177);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
@@ -232,11 +232,11 @@ export default function IssueReporter({
       let finalLng = lng;
 
       if (locationMode === 'manual') {
-        if (lat === 37.7649 && lng === -122.4194) {
+        if (lat === 28.6304 && lng === 77.2177) {
           const randomOffsetLat = (Math.random() - 0.5) * 0.015;
           const randomOffsetLng = (Math.random() - 0.5) * 0.015;
-          finalLat = 37.7649 + randomOffsetLat;
-          finalLng = -122.4194 + randomOffsetLng;
+          finalLat = 28.6304 + randomOffsetLat;
+          finalLng = 77.2177 + randomOffsetLng;
         }
       }
 
@@ -631,7 +631,7 @@ export default function IssueReporter({
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="E.g. Large water line leak flooding SOMA sidewalk..."
+                  placeholder="E.g. Large water line leak flooding Karol Bagh sidewalk..."
                   rows={3}
                   className={`w-full text-sm px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
                     theme === 'dark' 
@@ -674,9 +674,9 @@ export default function IssueReporter({
                     type="button"
                     onClick={() => {
                       setLocationMode('manual');
-                      setLat(37.7649);
-                      setLng(-122.4194);
-                      setAddress('850 Valencia St, San Francisco, CA 94110');
+                      setLat(28.6304);
+                      setLng(77.2177);
+                      setAddress('Connaught Place Outer Circle, New Delhi, Delhi 110001');
                       setGeoError(null);
                     }}
                     className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between h-20 cursor-pointer ${
@@ -999,7 +999,7 @@ export default function IssueReporter({
                 <input
                   type="text"
                   required
-                  placeholder="E.g. Delayed pothole resolution on SOMA corridor"
+                  placeholder="E.g. Delayed pothole resolution on Connaught Place corridor"
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
                   className={`w-full text-xs px-3.5 py-2 rounded-lg border outline-none ${

@@ -116,6 +116,17 @@ export default function App() {
   // Subscribe to real-time updates from Firestore on mount
   useEffect(() => {
     setLoading(true);
+    let pollingInterval: any = null;
+
+    const startPollingFallback = () => {
+      if (!pollingInterval) {
+        console.log("Starting REST API polling fallback...");
+        pollingInterval = setInterval(() => {
+          syncState();
+        }, 5000);
+      }
+    };
+
     const qIssues = collection(db, 'issues');
     const unsubscribeIssues = onSnapshot(qIssues, (snapshot) => {
       const fetchedIssues: Issue[] = [];
@@ -129,8 +140,9 @@ export default function App() {
       setIssues(sortedIssues);
       setLoading(false);
     }, (error) => {
-      console.error("Firestore real-time issues subscription error:", error);
-      setLoading(false);
+      console.error("Firestore real-time issues subscription error, falling back to polling:", error);
+      syncState();
+      startPollingFallback();
     });
 
     const qUsers = collection(db, 'users');
@@ -143,7 +155,9 @@ export default function App() {
       const sortedUsers = fetchedUsers.sort((a, b) => b.points - a.points);
       setUsersList(sortedUsers);
     }, (error) => {
-      console.error("Firestore real-time users subscription error:", error);
+      console.error("Firestore real-time users subscription error, falling back to polling:", error);
+      syncState();
+      startPollingFallback();
     });
 
     // Also fetch current session info
@@ -163,6 +177,9 @@ export default function App() {
     return () => {
       unsubscribeIssues();
       unsubscribeUsers();
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
     };
   }, []);
 

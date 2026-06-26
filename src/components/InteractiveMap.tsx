@@ -106,10 +106,10 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
       maxZoom: 20
     });
 
-    // Default map coordinates center on San Francisco (where demo issues are plotted)
+    // Default map coordinates center on New Delhi, India (where demo issues are plotted)
     const map = L.map(mapContainerRef.current, {
-      center: [37.771, -122.416],
-      zoom: 14,
+      center: [28.6186, 77.1557],
+      zoom: 12,
       zoomControl: false,
       layers: [darkTiles]
     });

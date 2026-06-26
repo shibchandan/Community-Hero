@@ -10,7 +10,10 @@ import {
   seedIfNeeded,
   getDistanceKm, 
   DEFAULT_USERS, 
-  DEFAULT_ISSUES
+  DEFAULT_ISSUES,
+  hashPassword,
+  getCredential,
+  saveCredential
 } from './db';
 import { ai } from './gemini';
 import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus } from '../src/types';
@@ -94,6 +97,109 @@ router.get('/users/me', async (req, res) => {
   }
 });
 
+// Custom credentials registration endpoint
+router.post('/auth/register', async (req, res) => {
+  const { email, password, name } = req.body;
+  
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: 'All fields (name, email, password) are required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+  const sanitizedName = sanitizeInput(name);
+
+  if (!isValidEmail(sanitizedEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password should be at least 6 characters.' });
+  }
+
+  try {
+    // Check if credential already exists
+    const existingCred = await getCredential(sanitizedEmail);
+    if (existingCred) {
+      return res.status(400).json({ error: 'This email is already registered. Please log in instead.' });
+    }
+
+    const uid = 'user_custom_' + Math.random().toString(36).substring(2, 15);
+    const passwordHash = hashPassword(password);
+
+    // Save credential
+    await saveCredential(sanitizedEmail, passwordHash, uid);
+
+    // Create user profile
+    const isTargetAdmin = sanitizedEmail === 'shibchandan11@gmail.com';
+    const sanitizedRole = isTargetAdmin ? 'authority' : 'citizen';
+
+    const user: User = {
+      id: uid,
+      name: sanitizedName,
+      email: sanitizedEmail,
+      role: sanitizedRole,
+      points: isTargetAdmin ? 500 : 40,
+      trust_score: 100,
+      badges: isTargetAdmin ? ['SLA Champion', 'Civic Mentor', 'City Administrator'] : ['Civic Recruit'],
+      completed_reports: isTargetAdmin ? 12 : 0,
+      validations_count: isTargetAdmin ? 45 : 0,
+      area: isTargetAdmin ? 'City-Wide Authority' : 'New Delhi'
+    };
+
+    await saveUser(user);
+    await setCurrentSession(user);
+
+    res.json({ message: 'User registered successfully', user });
+  } catch (err) {
+    console.error('Error registering user:', err);
+    res.status(500).json({ error: 'Registration failed due to server error.' });
+  }
+});
+
+// Custom credentials login endpoint
+router.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  try {
+    const cred = await getCredential(sanitizedEmail);
+    if (!cred) {
+      // Friendly fallback: check if it is a default user and log them in
+      const defaultUser = DEFAULT_USERS.find(u => u.email.toLowerCase() === sanitizedEmail);
+      if (defaultUser) {
+        const passwordHash = hashPassword(password);
+        await saveCredential(sanitizedEmail, passwordHash, defaultUser.id);
+        await setCurrentSession(defaultUser);
+        return res.json({ message: 'Logged in successfully', user: defaultUser });
+      }
+      return res.status(400).json({ error: 'No account found with this email.' });
+    }
+
+    const incomingHash = hashPassword(password);
+    if (incomingHash !== cred.passwordHash) {
+      return res.status(400).json({ error: 'Incorrect password. Please try again.' });
+    }
+
+    const users = await getUsers();
+    const user = users.find(u => u.id === cred.userId);
+
+    if (!user) {
+      return res.status(400).json({ error: 'User profile not found in database.' });
+    }
+
+    await setCurrentSession(user);
+    res.json({ message: 'Logged in successfully', user });
+  } catch (err) {
+    console.error('Error logging in user:', err);
+    res.status(500).json({ error: 'Login failed due to server error.' });
+  }
+});
+
 // 2. Sync Firebase Auth session with backend database
 router.post('/auth/sync', async (req, res) => {
   const { uid, email, name, role } = req.body;
@@ -143,7 +249,7 @@ router.post('/auth/sync', async (req, res) => {
           badges: isTargetAdmin ? ['SLA Champion', 'Civic Mentor', 'City Administrator'] : ['Civic Recruit'],
           completed_reports: isTargetAdmin ? 12 : 0,
           validations_count: isTargetAdmin ? 45 : 0,
-          area: isTargetAdmin ? 'City-Wide Authority' : 'San Francisco'
+          area: isTargetAdmin ? 'City-Wide Authority' : 'New Delhi'
         };
       }
       await saveUser(user);
@@ -771,26 +877,26 @@ router.get('/predictive/risks', (req, res) => {
   const risks = [
     {
       id: 'p1',
-      zone: 'Mission District (East)',
-      hazardType: 'Pothole Multiplication Risk',
+      zone: 'Connaught Place (Inner Circle)',
+      hazardType: 'Monsoon Pothole Multiplication Risk',
       probability: 88,
-      factors: ['Heavy rainfall forecast (+45mm)', 'Aged asphalt micro-cracking', 'High transit bus density'],
+      factors: ['Heavy monsoon rainfall forecast (+65mm)', 'Aged asphalt micro-cracking', 'High DTC bus traffic density'],
       recommendedAction: 'Pre-patch micro-fissures in high-risk zones'
     },
     {
       id: 'p2',
-      zone: 'SOMA Tech Corridor',
-      hazardType: 'Garbage Bin Overflow Risk',
+      zone: 'Dwarka (Sector 10 Corridor)',
+      hazardType: 'Garbage Dump Overflow Risk',
       probability: 72,
-      factors: ['Tech-conference weekend crowd spillover', 'Reduced sanitation pickup cycles on Sunday'],
+      factors: ['Festival shopping weekend crowd spillover', 'Reduced municipal cleanup cycles on Sunday'],
       recommendedAction: 'Deploy 8 smart high-capacity compaction bins'
     },
     {
       id: 'p3',
-      zone: 'Market District (West)',
-      hazardType: 'Water Main Leakage Risk',
+      zone: 'Karol Bagh (Market Corridor)',
+      hazardType: 'Water Pipeline Leakage Risk',
       probability: 64,
-      factors: ['Thermal expansion stress', 'Pipes aged >45 years', 'Sub-surface vibration spikes'],
+      factors: ['Thermal expansion stress', 'Pipes aged >40 years', 'Sub-surface metro construction vibration spikes'],
       recommendedAction: 'Acoustic pressure sensor sweeping'
     }
   ];
