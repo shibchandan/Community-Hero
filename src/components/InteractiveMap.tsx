@@ -328,11 +328,8 @@ export default function InteractiveMap({ issues, onSelectIssue, selectedIssueId,
       userMarkerRef.current = userMarker;
     }
 
-    // Smoothly fly to user's location coordinates with a higher zoom level
-    map.flyTo([userLoc.lat, userLoc.lng], 15, {
-      animate: true,
-      duration: 1.5
-    });
+    // Instantly snap to user's location coordinates with a higher zoom level (removed flyTo animation)
+    map.setView([userLoc.lat, userLoc.lng], 15);
   }, [userLoc]);
 
   return (
