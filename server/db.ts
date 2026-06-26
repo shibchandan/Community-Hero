@@ -13,6 +13,17 @@ export interface Credential {
 
 // Read Firebase configuration dynamically from the config file
 const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+if (!fs.existsSync(configPath)) {
+  fs.writeFileSync(configPath, JSON.stringify({
+    apiKey: "mock_api_key_for_local_fallback",
+    authDomain: "mock-project.firebaseapp.com",
+    projectId: "mock-project",
+    storageBucket: "mock-project.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:1234567890abcdef",
+    firestoreDatabaseId: "(default)"
+  }, null, 2), 'utf8');
+}
 const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 export const isLocalMode = !firebaseConfig.projectId || firebaseConfig.projectId === 'mock-project';

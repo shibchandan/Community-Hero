@@ -50,6 +50,7 @@ const NAV_ITEMS = [
 function NavButton({
   item, active, expanded, theme, onClick
 }: {
+  key?: any;
   item: typeof NAV_ITEMS[0];
   active: boolean;
   expanded: boolean;
