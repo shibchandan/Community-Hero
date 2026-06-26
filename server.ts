@@ -33,10 +33,12 @@ app.use(helmet({
       connectSrc: ["'self'", "https://nominatim.openstreetmap.org", "ws:", "wss:"], // WebSockets for dev and external APIs
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
+      frameAncestors: ["'self'", "https://*.google.com", "https://ai.studio", "https://*.run.app"], // Allow AI Studio iframe
       upgradeInsecureRequests: [],
     },
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  frameguard: false // Turn off X-Frame-Options: SAMEORIGIN so it can be loaded in the AI Studio iframe
 }));
 
 // Apply basic rate limiting to API routes
@@ -59,9 +61,14 @@ const authLimiter = rateLimit({
 
 // Configure CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-production-domain.com'] // Replace with actual production domain
-    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173'],
+  origin: (origin, callback) => {
+    // Allow same-origin (origin is undefined) or localhost/run.app/google.com/ai.studio subdomains
+    if (!origin || /localhost|127\.0\.0\.1|google\.com|ai\.studio|run\.app/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
   credentials: true
 }));
 
