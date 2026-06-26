@@ -136,9 +136,9 @@ export default function App() {
   }, []);
 
   // Sync state with the backend database
-  const syncState = async () => {
+  const syncState = async (showLoading: boolean = false) => {
     try {
-      setLoading(true);
+      if (showLoading === true) setLoading(true);
       // Fetch Issues
       const resIssues = await fetch('/api/issues');
       if (resIssues.ok) {
@@ -165,7 +165,7 @@ export default function App() {
     } catch (err) {
       console.error('Failed to synchronize database state with server:', err);
     } finally {
-      setLoading(false);
+      if (showLoading === true) setLoading(false);
     }
   };
 
@@ -196,9 +196,8 @@ export default function App() {
 
     if (isLocalMode) {
       console.log("Running in local mode: skipping live Firestore listeners, using REST API polling fallback.");
-      syncState();
+      syncState(true);
       startPollingFallback();
-      setLoading(false);
       return () => {
         if (pollingInterval) {
           clearInterval(pollingInterval);
@@ -220,7 +219,7 @@ export default function App() {
       setLoading(false);
     }, (error) => {
       console.error("Firestore real-time issues subscription error, falling back to polling:", error);
-      syncState();
+      syncState(true);
       startPollingFallback();
     });
 
@@ -235,7 +234,7 @@ export default function App() {
       setUsersList(sortedUsers);
     }, (error) => {
       console.error("Firestore real-time users subscription error, falling back to polling:", error);
-      syncState();
+      syncState(true);
       startPollingFallback();
     });
 
@@ -578,7 +577,7 @@ export default function App() {
                 className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer">
                 <Layers className="w-3.5 h-3.5" /> Toggle Identity
               </button>
-              <button onClick={syncState}
+              <button onClick={() => syncState(true)}
                 className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
                   theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`} title="Sync">
