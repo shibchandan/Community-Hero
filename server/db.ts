@@ -164,7 +164,7 @@ export async function getIssueById(id: string): Promise<Issue | null> {
 export async function getCurrentSession(): Promise<User | null> {
   if (isLocalMode) {
     const session = readJsonFile(sessionFile);
-    return session ? session.currentUserSession : DEFAULT_USERS[0];
+    return session && session.currentUserSession ? session.currentUserSession : null;
   }
   const docRef = doc(db, 'metadata', 'session');
   const docSnap = await getDoc(docRef);

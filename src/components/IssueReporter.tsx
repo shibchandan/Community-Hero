@@ -887,21 +887,21 @@ export default function IssueReporter({
           <div className="space-y-3">
             {[
               {
-                name: '311 City Services Center',
-                desc: 'For non-emergency requests: potholes, streetlights, graffiti, or garbage dumping.',
-                number: '311 (Simulated)',
+                name: 'KMC Control Room',
+                desc: 'For non-emergency civic requests: potholes, water logging, streetlights, or garbage.',
+                number: '1800-345-3375',
                 color: 'emerald'
               },
               {
-                name: 'SLA Dispatch Escalation Desk',
-                desc: 'Speak directly to supervisors regarding critical overdue civic emergencies.',
-                number: '1-800-CIVIC-SLA',
+                name: 'KMC WhatsApp Grievance',
+                desc: 'Report civic issues directly to Kolkata Municipal Corporation via WhatsApp.',
+                number: '+91 8335999111',
                 color: 'amber'
               },
               {
-                name: 'Emergency Response Core (911)',
+                name: 'National Emergency (112)',
                 desc: 'Strictly for active fires, structural collapses, and severe safety threats.',
-                number: '911 (Emergency)',
+                number: '112',
                 color: 'red'
               }
             ].map((hp) => (
@@ -988,7 +988,7 @@ export default function IssueReporter({
                   <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>To</label>
                   <input
                     type="text"
-                    value="escalations@communityhero.gov"
+                    value="grievance@kmcgov.in"
                     disabled
                     className={`w-full text-xs px-3 py-2 rounded-lg border cursor-not-allowed ${
                       theme === 'dark' 

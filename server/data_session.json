@@ -1,18 +1,18 @@
 {
   "currentUserSession": {
-    "id": "user_citizen_1",
-    "name": "Aarav Sharma",
-    "email": "aarav.sharma@civic.in",
-    "role": "authority",
-    "points": 360,
-    "trust_score": 95,
+    "id": "user_custom_smoe0tryb0p",
+    "name": "Shibchandan11",
+    "email": "shibchandan11@gmail.com",
+    "role": "citizen",
+    "points": 500,
+    "trust_score": 100,
     "badges": [
-      "Pothole Patrol",
-      "Local Hero",
-      "Waste Warden"
+      "SLA Champion",
+      "Civic Mentor",
+      "City Administrator"
     ],
-    "completed_reports": 9,
-    "validations_count": 24,
-    "area": "Connaught Place"
+    "completed_reports": 12,
+    "validations_count": 45,
+    "area": "City-Wide Authority"
   }
 }

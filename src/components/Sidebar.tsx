@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, ChevronLeft, ChevronRight, Layers, LogOut,
-  LogIn, Sun, Moon, RefreshCw, X
+  LogIn, Sun, Moon, RefreshCw, X, TrendingUp
 } from 'lucide-react';
 import { User } from '../types';
 import { NotificationBell } from './NotificationDrawer';
@@ -42,7 +42,7 @@ const NAV_ITEMS = [
   { id: 'authority'  as TabId, label: 'SLA Dispatch',   icon: Shield,    group: 'tools' },
   { id: 'leaderboard'as TabId, label: 'Hero Center',    icon: Trophy,    group: 'tools' },
   { id: 'dashboard'  as TabId, label: 'SLA Dashboard',  icon: BarChart3, group: 'tools' },
-  { id: 'analytics'  as TabId, label: 'Admin Analytics', icon: BarChart3, group: 'tools' },
+  { id: 'analytics'  as TabId, label: 'Admin Analytics', icon: TrendingUp, group: 'tools' },
 ];
 
 // ── NavButton ─────────────────────────────────────────────────────────────────

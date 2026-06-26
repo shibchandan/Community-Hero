@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Detect if running in local/mock mode (no real Firebase project)
@@ -11,10 +12,9 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore (used only in live mode)
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Auth is handled entirely by the custom backend (/api/auth/login & /api/auth/register)
-// Firebase Auth is NOT used — this prevents auth/invalid-api-key errors in local mode
-export const auth = null;
-export const googleProvider = null;
+// Initialize Auth and Google OAuth Provider
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
 // Only test Firestore connection in live Firebase mode
 async function testConnection() {

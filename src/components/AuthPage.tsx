@@ -4,6 +4,8 @@ import {
   Sparkles, Mail, Lock, User, AlertTriangle, 
   Loader2, Shield, ArrowRight, Chrome
 } from 'lucide-react';
+import { auth, googleProvider } from '../lib/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, updateProfile, signInWithPopup } from 'firebase/auth';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
@@ -12,8 +14,6 @@ interface AuthPageProps {
 
 export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [isLogin, setIsLogin] = useState(true);
-  const [isOtpPhase, setIsOtpPhase] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -39,60 +39,44 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
     setError(null);
     setSuccessMessage(null);
 
-    // Simulate sending OTP
-    setTimeout(() => {
-      setLoading(false);
-      setIsOtpPhase(true);
-      setSuccessMessage(`A 4-digit verification code has been sent to ${email}`);
-    }, 1500);
-  };
-
-  const handleVerifyOtp = async (e: FormEvent) => {
-    e.preventDefault();
-    if (otpCode.length !== 4) {
-      setError('Please enter a valid 4-digit code (e.g., 1234).');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setSuccessMessage(null);
-
     try {
+      if (!auth) throw new Error("Firebase Auth is not initialized. Please configure API keys.");
+
       if (isLogin) {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to sign in.');
-        }
+        await signInWithEmailAndPassword(auth, email, password);
+        onAuthSuccess();
       } else {
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name: displayName })
-        });
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to register account.');
-        }
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName });
+        await sendEmailVerification(userCredential.user);
+        setSuccessMessage(`A verification link has been sent to ${email}. Please check your inbox.`);
+        // Note: we don't call onAuthSuccess immediately here if we want them to verify first.
+        // But for simplicity in this sandbox, we'll let them in or rely on onAuthStateChanged in App.tsx.
+        onAuthSuccess();
       }
-      onAuthSuccess();
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred during authentication.');
-      setIsOtpPhase(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setError(null);
-    setSuccessMessage('Google Sign-In is unavailable in this environment. Please use email registration.');
+    setSuccessMessage(null);
+    
+    try {
+      if (!auth || !googleProvider) throw new Error("Firebase Auth is not initialized. Please configure API keys.");
+      setLoading(true);
+      await signInWithPopup(auth, googleProvider);
+      onAuthSuccess();
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+      setError(err.message || 'An error occurred during Google Sign-In.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -170,44 +154,6 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           </motion.div>
         )}
 
-        {isOtpPhase ? (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">4-Digit Security Code</label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input 
-                  type="text" 
-                  maxLength={4}
-                  required
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl py-3 pl-12 pr-4 text-white text-center text-2xl tracking-[0.5em] font-mono focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-600"
-                  placeholder="••••"
-                />
-              </div>
-            </div>
-            
-            <button 
-              type="submit" 
-              disabled={loading || otpCode.length !== 4}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 mt-6 cursor-pointer"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                <>Verify & Proceed <ArrowRight className="w-4 h-4" /></>
-              )}
-            </button>
-            <div className="text-center mt-4">
-              <button 
-                type="button" 
-                onClick={() => setIsOtpPhase(false)} 
-                className="text-xs text-slate-400 hover:text-white underline transition-colors cursor-pointer"
-              >
-                Back to Login
-              </button>
-            </div>
-          </form>
-        ) : (
           <form onSubmit={handleInitialSubmit} className="space-y-4">
             {!isLogin && (
               <div>
@@ -294,7 +240,6 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               )}
             </button>
           </form>
-        )}
 
         {/* Divider */}
         <div className="relative my-6">

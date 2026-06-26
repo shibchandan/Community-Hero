@@ -1,4 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
+import fs from 'fs';
+import path from 'path';
 import { 
   getUsers,
   saveUser,
@@ -17,9 +20,55 @@ import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, Issu
 
 const router = Router();
 
+// --- Rate Limiting ---
+const actionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute cooldown
+  max: 5, // Maximum 5 issues created per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many actions from this IP, please wait a minute.' }
+});
+
+// --- Enterprise Security: Audit Logging & RBAC ---
+
+export function auditLog(action: string, userId: string, details: any, req: Request) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    action,
+    userId,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    details
+  };
+  const logPath = path.join(__dirname, 'data_audit.json');
+  try {
+    let logs = [];
+    if (fs.existsSync(logPath)) {
+      logs = JSON.parse(fs.readFileSync(logPath, 'utf8'));
+    }
+    logs.push(logEntry);
+    fs.writeFileSync(logPath, JSON.stringify(logs, null, 2));
+  } catch (e) {
+    console.error('Audit log failed', e);
+  }
+}
+
+export function requireRole(roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Note: When fully integrated with Firebase Admin SDK, we will verify the Bearer token's custom claims here.
+    // For now, we enforce based on a mock header for sandbox purposes.
+    const userRole = req.headers['x-user-role'] || 'citizen';
+    if (!roles.includes(userRole as string)) {
+      auditLog('UNAUTHORIZED_ACCESS_ATTEMPT', 'unknown', { path: req.path, attemptedRole: userRole }, req);
+      return res.status(403).json({ error: 'Access denied: Insufficient role permissions.' });
+    }
+    next();
+  };
+}
+
 // --- Security Validation & Sanitization Helpers ---
 
-// Sanitize inputs to prevent Cross-Site Scripting (XSS)
+// Enhanced XSS Sanitization to prevent Cross-Site Scripting
 function sanitizeInput(str: string): string {
   if (typeof str !== 'string') return '';
   return str
@@ -29,6 +78,9 @@ function sanitizeInput(str: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
     .replace(/\//g, '&#x2F;')
+    .replace(/javascript:/gi, '')
+    .replace(/vbscript:/gi, '')
+    .replace(/data:/gi, '')
     .trim();
 }
 
@@ -159,8 +211,9 @@ router.post('/auth/login', async (req, res) => {
   try {
     const cred = await getCredential(sanitizedEmail);
     if (!cred) {
-      // Friendly fallback: check if it is a default user and log them in
-      const defaultUser = DEFAULT_USERS.find(u => u.email.toLowerCase() === sanitizedEmail);
+      // Friendly fallback: check if it is a pre-existing user and log them in
+      const allUsers = await getUsers();
+      const defaultUser = allUsers.find(u => u.email.toLowerCase() === sanitizedEmail);
       if (defaultUser) {
         const passwordHash = hashPassword(password);
         await saveCredential(sanitizedEmail, passwordHash, defaultUser.id);
@@ -284,9 +337,11 @@ router.post('/users/toggle-role', async (req, res) => {
 
     if (userRecord) {
       // Toggle the actual user record's role between citizen and authority
+      const oldRole = userRecord.role;
       userRecord.role = userRecord.role === 'citizen' ? 'authority' : 'citizen';
       await saveUser(userRecord);
       await setCurrentSession(userRecord);
+      auditLog('ROLE_TOGGLED', userRecord.id, { from: oldRole, to: userRecord.role }, req);
     } else {
       // Fallback if the user is in session but not registered in database.users yet
       const currentRole = currentSession.role;
@@ -346,7 +401,7 @@ router.get('/issues/:id', async (req, res) => {
 });
 
 // 7. Report a new issue - triggering AI model if GEMINI_API_KEY is available
-router.post('/issues', async (req, res) => {
+router.post('/issues', actionLimiter, async (req, res) => {
   const { title, description, category, location, severity, image } = req.body;
   
   if (!description || !location || typeof location !== 'object') {
@@ -809,6 +864,7 @@ router.post('/issues/:id/status', async (req, res) => {
     });
 
     await saveIssue(issue);
+    auditLog('ISSUE_STATUS_CHANGED', currentSession.id, { issueId: id, from: prevStatus, to: status, notes: cleanNotes }, req);
     res.json(issue);
   } catch (err) {
     console.error('Error updating status:', err);

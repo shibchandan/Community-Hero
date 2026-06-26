@@ -17,7 +17,7 @@ import { router as apiRouter } from './server/routes';
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 8080;
 
 // Enable 'trust proxy' so Express and express-rate-limit correctly recognize real client IPs behind Cloud Run proxies
 app.set('trust proxy', 1);
@@ -44,7 +44,7 @@ app.use(helmet({
 // Apply basic rate limiting to API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 150, // Limit each IP to 150 requests per window
+  max: 2000, // Limit each IP to 2000 requests per window (Sandbox friendly)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
@@ -53,7 +53,7 @@ const apiLimiter = rateLimit({
 // Strict rate limiter for authentication routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login/register requests per IP per window
+  max: 100, // Max 100 login/register requests per IP per window (Sandbox friendly)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts from this IP, please try again after 15 minutes.' }
@@ -81,6 +81,17 @@ app.use(mongoSanitize());
 
 // Protect against HTTP Parameter Pollution attacks
 app.use(hpp());
+
+// Apply Anti-Abuse Bot Middleware
+app.use((req, res, next) => {
+  const userAgent = req.headers['user-agent'];
+  // Block requests completely lacking a User-Agent, or known malicious bot signatures
+  if (!userAgent || /curl|wget|python-requests|headlesschrome/i.test(userAgent)) {
+    console.warn(`[Anti-Abuse] Blocked suspicious request from IP: ${req.ip}`);
+    return res.status(403).json({ error: 'Access denied: Suspicious activity detected.' });
+  }
+  next();
+});
 
 // Apply rate limiters
 app.use('/api/auth', authLimiter);

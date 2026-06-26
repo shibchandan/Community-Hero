@@ -12,6 +12,7 @@ import AuthPage from './components/AuthPage';
 import { Issue, User, IssueStatus } from './types';
 import InteractiveMap from './components/InteractiveMap';
 import IssueReporter from './components/IssueReporter';
+
 import CommunityFeed from './components/CommunityFeed';
 import AuthorityControl from './components/AuthorityControl';
 import GamificationLeaderboard from './components/GamificationLeaderboard';
@@ -153,7 +154,13 @@ export default function App() {
         if (dataMe) {
           setCurrentUser(dataMe);
           saveSession(dataMe); // keep localStorage in sync with server
+        } else {
+          setCurrentUser(null);
+          saveSession(null);
         }
+      } else {
+        setCurrentUser(null);
+        saveSession(null);
       }
 
       // Fetch User list for Leaderboards
@@ -279,9 +286,13 @@ export default function App() {
         const data = await response.json();
         setCurrentUser(data.user);
         syncState();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Failed to toggle role: ${errorData.error || response.statusText}. Please log out and log back in.`);
       }
     } catch (err) {
       console.error('Failed to toggle session user role:', err);
+      alert('Network error while trying to toggle role.');
     }
   };
 
@@ -515,14 +526,18 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* ── Sandbox Banner (status bar) ──────────────────────────── */}
+      {/* ── MAIN CONTENT WRAPPER ───────────────────────────────────────── */}
       <motion.div
-        animate={{ marginLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? (sidebarExpanded ? 220 : 64) : 0 }}
+        animate={{ paddingLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? (sidebarExpanded ? 220 : 64) : 0 }}
         transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-        className={`relative z-20 mx-4 mt-20 lg:mt-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
-          theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/70 border-white/40 shadow-slate-200/50'
-        }`}
+        className="flex flex-col flex-1 w-full relative z-10 min-h-screen"
       >
+        {/* ── Sandbox Banner (status bar) ──────────────────────────── */}
+        <div
+          className={`relative z-20 mx-4 mt-20 lg:mt-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
+            theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/70 border-white/40 shadow-slate-200/50'
+          }`}
+        >
         {currentUser ? (
           <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-3 px-4">
             <div className="flex items-center gap-3">
@@ -628,7 +643,7 @@ export default function App() {
             </div>
           </div>
         )}
-      </motion.div>
+        </div>
 
       {/* ------------------ MAIN INTERACTIVE CONTAINER ------------------ */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-6">
@@ -1120,9 +1135,10 @@ export default function App() {
         </div>
       )}
 
+      </motion.div>
+
       {/* ── Global AI Chatbot ────────────────────────────────────────── */}
       <CivicBot theme={theme} />
- 
     </div>
   );
 }
