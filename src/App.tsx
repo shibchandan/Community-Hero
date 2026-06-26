@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { useState, useEffect, useMemo } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,59 +16,123 @@ import CommunityFeed from './components/CommunityFeed';
 import AuthorityControl from './components/AuthorityControl';
 import GamificationLeaderboard from './components/GamificationLeaderboard';
 import SlaDashboard from './components/SlaDashboard';
+import { NotificationBell } from './components/NotificationDrawer';
+import UserProfile from './components/UserProfile';
+import Sidebar from './components/Sidebar';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import { CivicBot } from './components/CivicBot';
 import { 
-  Map, FileText, Sparkles, Shield, Trophy, BarChart3, 
-  Sun, Moon, Users, UserCheck, RefreshCw, Layers, LogOut, Loader2, LogIn,
-  Menu, X
+  Map, FileText, Sparkles, Shield, Trophy, BarChart3,
+  UserCheck, RefreshCw, Layers, Loader2, Menu, X
 } from 'lucide-react';
+
+// --- Session Persistence Helpers ---
+const SESSION_KEY = 'civic_hero_session';
+const THEME_KEY = 'civic_hero_theme';
+
+function loadStoredSession(): import('./types').User | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveSession(user: import('./types').User | null) {
+  try {
+    if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch { /* storage unavailable */ }
+}
+
+function loadStoredTheme(): 'dark' | 'light' {
+  try {
+    const raw = localStorage.getItem(THEME_KEY);
+    return raw === 'light' ? 'light' : 'dark';
+  } catch { return 'dark'; }
+}
 
 export default function App() {
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(loadStoredSession);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState<string | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard'>('map');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile'>('map');
+  const [theme, setTheme] = useState<'dark' | 'light'>(loadStoredTheme);
   const [loading, setLoading] = useState(true);
   const [fbUser, setFbUser] = useState<any>(null);
-  const [fbLoading, setFbLoading] = useState(true);
+  const [fbLoading, setFbLoading] = useState(!loadStoredSession()); // skip loading flash if we have a stored session
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyTab, setPolicyTab] = useState<'privacy' | 'terms'>('privacy');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [globalCityFilter, setGlobalCityFilter] = useState<string>('New Delhi');
+  const [globalAreaFilter, setGlobalAreaFilter] = useState<string>('All Areas');
+  const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem('civic_sidebar_expanded') !== 'false'; }
+    catch { return true; }
+  });
 
-  // Monitor Firebase Auth changes and sync with Express database
+  // Persist session to localStorage whenever it changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFbLoading(true);
-      if (user) {
-        setFbUser(user);
-        try {
-          const response = await fetch('/api/auth/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: user.uid,
-              email: user.email,
-              name: user.displayName || user.email?.split('@')[0],
-              role: 'citizen'
-            })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setCurrentUser(data.user);
-            await syncState();
+    saveSession(currentUser);
+  }, [currentUser]);
+
+  // Persist theme
+  useEffect(() => {
+    try { localStorage.setItem(THEME_KEY, theme); } catch { }
+  }, [theme]);
+
+  // Persist sidebar state
+  useEffect(() => {
+    try { localStorage.setItem('civic_sidebar_expanded', String(sidebarExpanded)); } catch { }
+  }, [sidebarExpanded]);
+
+  // Monitor Firebase Auth changes (if enabled) and sync with Express database
+  useEffect(() => {
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        setFbLoading(true);
+        if (user) {
+          setFbUser(user);
+          try {
+            const response = await fetch('/api/auth/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                uid: user.uid,
+                email: user.email,
+                name: user.displayName || user.email?.split('@')[0],
+                role: 'citizen'
+              })
+            });
+            if (response.ok) {
+              const data = await response.json();
+              setCurrentUser(data.user);
+              await syncState();
+            }
+          } catch (err) {
+            console.error('Failed to sync auth user state with server:', err);
           }
-        } catch (err) {
-          console.error('Failed to sync auth user state with server:', err);
+        } else {
+          setFbUser(null);
+          setCurrentUser(null);
         }
+        setFbLoading(false);
+      });
+      return () => unsubscribe();
+    } else {
+      // In local/custom auth mode — restore from localStorage immediately,
+      // then validate & refresh from the server in the background
+      const stored = loadStoredSession();
+      if (stored) {
+        setCurrentUser(stored);
+        setFbLoading(false); // don't block UI — we already have cached data
+        syncState();          // silently refresh in background
       } else {
-        setFbUser(null);
-        setCurrentUser(null);
+        setFbLoading(true);
+        syncState().finally(() => setFbLoading(false));
       }
-      setFbLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
 
   // Sync state with the backend database
@@ -82,11 +146,14 @@ export default function App() {
         setIssues(dataIssues);
       }
 
-      // Fetch Current Session User
+      // Fetch Current Session User & persist to localStorage
       const resMe = await fetch('/api/users/me');
       if (resMe.ok) {
         const dataMe = await resMe.json();
-        setCurrentUser(dataMe);
+        if (dataMe) {
+          setCurrentUser(dataMe);
+          saveSession(dataMe); // keep localStorage in sync with server
+        }
       }
 
       // Fetch User list for Leaderboards
@@ -104,10 +171,10 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
       await fetch('/api/auth/logout', { method: 'POST' });
       setFbUser(null);
       setCurrentUser(null);
+      saveSession(null); // clear persisted session on logout
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -183,6 +250,16 @@ export default function App() {
     };
   }, []);
 
+  // Handle shared link routing
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sharedIssueId = params.get('issueId');
+    if (sharedIssueId) {
+      setActiveTab('feed');
+      setSelectedIssueId(sharedIssueId);
+    }
+  }, []);
+
   // Hot-swap session roles
   const handleToggleRole = async () => {
     try {
@@ -216,6 +293,35 @@ export default function App() {
       console.error('Failed to submit vote supporting issue:', err);
     }
   };
+
+  // ── Global Filter Memoization ───────────────────────────────────────────────
+  const availableCities = useMemo(() => {
+    const cities = new Set<string>();
+    issues.forEach(issue => {
+      if (issue.location?.city) cities.add(issue.location.city);
+    });
+    return Array.from(cities).sort();
+  }, [issues]);
+
+  const availableAreas = useMemo(() => {
+    const areas = new Set<string>();
+    issues.forEach(issue => {
+      if (globalCityFilter === 'All Cities' || issue.location?.city === globalCityFilter) {
+        if (issue.location?.area) areas.add(issue.location.area);
+      }
+    });
+    return Array.from(areas).sort();
+  }, [issues, globalCityFilter]);
+
+  const displayedIssues = useMemo(() => {
+    return issues.filter(issue => {
+      const cityMatches = globalCityFilter === 'All Cities' || issue.location?.city === globalCityFilter;
+      if (!cityMatches) return false;
+      
+      if (globalAreaFilter === 'All Areas') return true;
+      return issue.location?.area === globalAreaFilter;
+    });
+  }, [issues, globalAreaFilter, globalCityFilter]);
 
   // Add Comment
   const handleAddComment = async (issueId: string, text: string) => {
@@ -275,7 +381,7 @@ export default function App() {
     setActiveTab('feed');
   };
 
-  const activeIssue = issues.find(i => i.id === selectedIssueId);
+  const activeIssue = displayedIssues.find(i => i.id === selectedIssueId);
 
   if (fbLoading) {
     return (
@@ -292,446 +398,226 @@ export default function App() {
         ? 'bento-bg text-slate-100' 
         : 'bento-bg-light text-slate-800'
     }`}>
-      
-      {/* Decorative Blur Circles (Glassmorphism ambient glow backlights) */}
+
+      {/* Decorative Blur Circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-indigo-500/20 blur-[120px] animate-glow-slow-1" />
         <div className="absolute top-[30%] -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/10 blur-[150px] animate-glow-slow-2" />
         <div className="absolute -bottom-40 left-[20%] w-[550px] h-[550px] rounded-full bg-emerald-500/10 blur-[130px] animate-glow-slow-1" />
       </div>
 
-      {/* ------------------ FLOATING COGNITIVE SIMULATION CONTROLLER ------------------ */}
-      <div className="relative z-50 max-w-7xl mx-auto px-4 pt-4">
+      {/* ── DESKTOP SIDEBAR ─────────────────────────────────────── */}
+      <div className="hidden lg:block">
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          theme={theme}
+          setTheme={setTheme}
+          currentUser={currentUser}
+          issues={displayedIssues}
+          loading={loading}
+          expanded={sidebarExpanded}
+          setExpanded={setSidebarExpanded}
+          onLogin={() => setShowAuthModal(true)}
+          onLogout={handleLogout}
+          onToggleRole={handleToggleRole}
+          onSelectIssue={(issueId) => {
+            const found = displayedIssues.find(i => i.id === issueId);
+            if (found) { handleSelectIssue(found); }
+          }}
+        />
+      </div>
+
+      {/* ── MOBILE HEADER BAR ────────────────────────────────────── */}
+      <div className={`lg:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between px-4 py-3 border-b backdrop-blur-xl ${
+        theme === 'dark'
+          ? 'bg-slate-950/90 border-white/10'
+          : 'bg-white/90 border-slate-200'
+      }`}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className={`text-sm font-black font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Community Hero</p>
+            <p className={`text-[9px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-cyan-400' : 'text-indigo-500'}`}>Civic Engine</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <NotificationBell issues={displayedIssues} currentUser={currentUser} theme={theme}
+            onSelectIssue={(id) => { const f = displayedIssues.find(i => i.id === id); if (f) handleSelectIssue(f); }}
+          />
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className={`p-2 rounded-xl border cursor-pointer ${
+              theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-300' : 'bg-white border-slate-200 text-slate-600'
+            }`}
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── MOBILE DRAWER ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            <motion.div
+              key="mob-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm lg:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <motion.div
+              key="mob-drawer"
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 350, damping: 32 }}
+              className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col lg:hidden ${
+                theme === 'dark' ? 'bg-slate-950 border-r border-white/10' : 'bg-white border-r border-slate-200'
+              }`}
+            >
+              <Sidebar
+                activeTab={activeTab}
+                setActiveTab={(t) => { setActiveTab(t); setMobileMenuOpen(false); }}
+                theme={theme}
+                setTheme={setTheme}
+                currentUser={currentUser}
+                issues={displayedIssues}
+                loading={loading}
+                expanded={true}
+                setExpanded={() => {}}
+                onLogin={() => { setShowAuthModal(true); setMobileMenuOpen(false); }}
+                onLogout={() => { handleLogout(); setMobileMenuOpen(false); }}
+                onToggleRole={() => { handleToggleRole(); setMobileMenuOpen(false); }}
+                onSelectIssue={(id) => { const f = displayedIssues.find(i => i.id === id); if (f) { handleSelectIssue(f); setMobileMenuOpen(false); } }}
+              />
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className={`absolute top-4 right-4 p-1.5 rounded-lg cursor-pointer ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Sandbox Banner (status bar) ──────────────────────────── */}
+      <motion.div
+        animate={{ marginLeft: typeof window !== 'undefined' && window.innerWidth >= 1024 ? (sidebarExpanded ? 220 : 64) : 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+        className={`relative z-20 mx-4 mt-20 lg:mt-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
+          theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white/70 border-white/40 shadow-slate-200/50'
+        }`}
+      >
         {currentUser ? (
-          <div className={`flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
-            theme === 'dark' 
-              ? 'bg-white/5 border-white/10 shadow-black/40' 
-              : 'bg-white/70 border-white/40 shadow-slate-200/50'
-          }`}>
+          <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-3 px-4">
             <div className="flex items-center gap-3">
-              <span className="flex h-3.5 w-3.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+              <span className="flex h-3 w-3 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
-              <div className="text-xs">
-                <span className={`font-bold uppercase tracking-wider text-[10px] ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
-                }`}>Active Hackathon Persona Sandbox</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <UserCheck className="w-4 h-4 text-indigo-400" />
-                  <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
-                    {currentUser.name} 
+              <div className="text-xs flex flex-wrap items-center gap-1.5">
+                <span className={`font-bold uppercase tracking-wider text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Sandbox</span>
+                <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{currentUser.name}</span>
+                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                  currentUser.role === 'authority'
+                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                    : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                }`}>{currentUser.role}</span>
+                {currentUser.role === 'citizen' && (
+                  <span className={`font-mono text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
+                    {currentUser.points} pts · {currentUser.trust_score}% trust
                   </span>
-                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                    currentUser.role === 'authority' 
-                      ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                      : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                  }`}>
-                    {currentUser.role}
-                  </span>
-                  {currentUser.role === 'citizen' && (
-                    <span className={`font-mono text-[10px] ml-1.5 ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
-                    }`}>
-                      Points: {currentUser.points} pts • Trust: {currentUser.trust_score}%
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
             </div>
-
             <div className="flex gap-2 items-center">
-              <button
-                onClick={handleToggleRole}
-                aria-label="Toggle Persona Identity Experience"
-                className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Layers className="w-3.5 h-3.5" /> Toggle Identity Experience
-              </button>
-
-              <button
-                onClick={syncState}
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  theme === 'dark'
-                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+              <select
+                value={globalCityFilter}
+                onChange={(e) => setGlobalCityFilter(e.target.value)}
+                className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
-                title="Sync Database State"
-                aria-label="Synchronize database state from Firestore"
+                title="Filter by City"
               >
+                <option value="All Cities">🌎 ALL CITIES</option>
+                {availableCities.map(city => (
+                  <option key={city} value={city}>📍 {city.toUpperCase()}</option>
+                ))}
+              </select>
+              <select
+                value={globalAreaFilter}
+                onChange={(e) => setGlobalAreaFilter(e.target.value)}
+                className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                }`}
+                title="Filter by Zone"
+              >
+                <option value="All Areas">🌎 ALL ZONES</option>
+                {availableAreas.map(area => (
+                  <option key={area} value={area}>📍 {area.toUpperCase()}</option>
+                ))}
+              </select>
+              <button onClick={handleToggleRole}
+                className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer">
+                <Layers className="w-3.5 h-3.5" /> Toggle Identity
+              </button>
+              <button onClick={syncState}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`} title="Sync">
                 <RefreshCw className="w-4 h-4" />
-              </button>
-
-              {/* Theme Selector */}
-              <button
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  theme === 'dark'
-                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
-                }`}
-                aria-label={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
-                title={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-
-              {/* Log Out */}
-              <button
-                onClick={handleLogout}
-                className="text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/20 text-rose-400 transition-all flex items-center gap-1 cursor-pointer"
-                title="Sign Out"
-                aria-label="Sign out of your account"
-              >
-                <LogOut className="w-3.5 h-3.5" /> Sign Out
               </button>
             </div>
           </div>
         ) : (
-          <div className={`flex flex-col md:flex-row gap-3 items-center justify-between p-4 rounded-2xl backdrop-blur-md shadow-lg border transition-all ${
-            theme === 'dark' 
-              ? 'bg-white/5 border-white/10 shadow-black/40' 
-              : 'bg-white/70 border-white/40 shadow-slate-200/50'
-          }`}>
-            <div className="flex items-center gap-3">
-              <span className="flex h-3.5 w-3.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-indigo-500"></span>
+          <div className="flex flex-col md:flex-row gap-3 items-center justify-between p-3 px-4">
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex h-3 w-3 relative shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500" />
               </span>
-              <div className="text-xs">
-                <span className={`font-bold uppercase tracking-wider text-[10px] ${
-                  theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
-                }`}>Browsing Mode</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Guest Citizen</span>
-                  <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                    Guest
-                  </span>
-                  <span className={`font-mono text-[10px] ml-1.5 ${
-                    theme === 'dark' ? 'text-gray-400' : 'text-slate-500'
-                  }`}>
-                    Authenticate to vote, comment, or report hazards
-                  </span>
-                </div>
-              </div>
+              <span className={`font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>Browsing as Guest — sign in to report, vote &amp; earn points</span>
             </div>
-
             <div className="flex gap-2 items-center">
-              {/* Theme Selector */}
-              <button
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  theme === 'dark'
-                    ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+              <select
+                value={globalCityFilter}
+                onChange={(e) => setGlobalCityFilter(e.target.value)}
+                className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
-                aria-label={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
-                title={theme === 'dark' ? "Switch to light theme" : "Switch to dark theme"}
+                title="Filter by City"
               >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
-                aria-label="Open sign in or register authentication modal"
+                <option value="All Cities">🌎 ALL CITIES</option>
+                {availableCities.map(city => (
+                  <option key={city} value={city}>📍 {city.toUpperCase()}</option>
+                ))}
+              </select>
+              <select
+                value={globalAreaFilter}
+                onChange={(e) => setGlobalAreaFilter(e.target.value)}
+                className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                }`}
+                title="Filter by Zone"
               >
-                <LogIn className="w-3.5 h-3.5" /> Sign In / Register
+                <option value="All Areas">🌎 ALL ZONES</option>
+                {availableAreas.map(area => (
+                  <option key={area} value={area}>📍 {area.toUpperCase()}</option>
+                ))}
+              </select>
+              <button onClick={() => setShowAuthModal(true)}
+                className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
+                Sign In / Register
               </button>
             </div>
           </div>
         )}
-      </div>
-
-      {/* ------------------ MOBILE DRAWER MENU ------------------ */}
-      <div 
-        className={`fixed inset-0 z-50 transition-all duration-300 ${
-          mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        {/* Backdrop overlay */}
-        <div 
-          className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs" 
-          onClick={() => setMobileMenuOpen(false)}
-        />
-        
-        {/* Drawer container */}
-        <div 
-          className={`absolute inset-y-0 left-0 w-72 p-6 shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-out transform ${
-            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } ${
-            theme === 'dark' 
-              ? 'bg-slate-950/95 border-r border-white/10 text-white' 
-              : 'bg-white border-r border-slate-200 text-slate-900'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between pb-6 border-b border-white/10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className={`text-md font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Community Hero</h2>
-                  <p className="text-[9px] text-blue-500 font-semibold tracking-widest uppercase">Civic Engine</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setMobileMenuOpen(false)}
-                className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  theme === 'dark' ? 'hover:bg-white/10 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800'
-                }`}
-                aria-label="Close menu"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <nav className="flex flex-col gap-1.5 mt-6" role="tablist" aria-label="Mobile Civic Navigation Tabs">
-              <button
-                role="tab"
-                aria-selected={activeTab === 'map'}
-                onClick={() => { setActiveTab('map'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'map'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <Map className="w-4 h-4" /> Explore Radar
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === 'feed'}
-                onClick={() => { setActiveTab('feed'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'feed'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <FileText className="w-4 h-4" /> Civic Feed
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === 'report'}
-                onClick={() => { setActiveTab('report'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'report'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <Sparkles className="w-4 h-4" /> Report Hazard
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === 'authority'}
-                onClick={() => { setActiveTab('authority'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'authority'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <Shield className="w-4 h-4" /> SLA Dispatch
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === 'leaderboard'}
-                onClick={() => { setActiveTab('leaderboard'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'leaderboard'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <Trophy className="w-4 h-4" /> Hero Center
-              </button>
-
-              <button
-                role="tab"
-                aria-selected={activeTab === 'dashboard'}
-                onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }}
-                className={`w-full text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center gap-3 cursor-pointer ${
-                  activeTab === 'dashboard'
-                    ? 'bg-indigo-600 text-white shadow-lg border border-indigo-500/50'
-                    : theme === 'dark'
-                      ? 'bg-white/5 border border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" /> SLA Analytics
-              </button>
-            </nav>
-          </div>
-
-          <div className="pt-6 border-t border-white/10">
-            {currentUser && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-indigo-400" />
-                  <span className={`text-xs font-bold truncate ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{currentUser.name}</span>
-                </div>
-                <button
-                  onClick={() => { handleToggleRole(); setMobileMenuOpen(false); }}
-                  className="w-full text-[10px] font-black uppercase tracking-wider py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-500/20"
-                >
-                  <Layers className="w-3.5 h-3.5" /> Toggle Identity
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ------------------ NAVIGATION HEADER ------------------ */}
-      <header className="relative z-10 max-w-7xl mx-auto px-4 pt-6">
-        <div className={`flex justify-between items-center py-5 px-6 rounded-2xl shadow-xl backdrop-blur-md border transition-all ${
-          theme === 'dark'
-            ? 'bg-white/5 border-white/10 shadow-black/40'
-            : 'bg-white/70 border-white/50 shadow-slate-200/40'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className={`text-2xl font-bold tracking-tight font-display transition-colors ${
-                theme === 'dark' ? 'text-white' : 'text-slate-800'
-              }`}>
-                Community Hero
-              </h1>
-              <p className={`text-xs font-semibold uppercase tracking-widest ${
-                theme === 'dark' ? 'text-blue-400' : 'text-indigo-600'
-              }`}>
-                Civic Intelligence Engine
-              </p>
-            </div>
-          </div>
-
-          {/* Hamburger Menu Trigger for Mobile */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className={`xl:hidden p-2.5 rounded-xl border transition-all cursor-pointer ${
-              theme === 'dark'
-                ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs'
-            }`}
-            aria-label="Open Navigation Drawer"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-
-          {/* Navigation tabs with full WAI-ARIA tablist semantics (Hidden on mobile) */}
-          <nav role="tablist" aria-label="Civic Navigation Tabs" className="hidden xl:flex gap-2">
-            <button
-              role="tab"
-              aria-selected={activeTab === 'map'}
-              aria-label="Explore Radar Map Tab"
-              onClick={() => setActiveTab('map')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'map'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <Map className="w-4 h-4" /> Explore Radar
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'feed'}
-              aria-label="Civic Incident Feed Tab"
-              onClick={() => setActiveTab('feed')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'feed'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <FileText className="w-4 h-4" /> Civic Feed
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'report'}
-              aria-label="Report New Hazard Tab"
-              onClick={() => setActiveTab('report')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'report'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <Sparkles className="w-4 h-4" /> Report Hazard
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'authority'}
-              aria-label="SLA Dispatch Console Tab"
-              onClick={() => setActiveTab('authority')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'authority'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <Shield className="w-4 h-4" /> SLA Dispatch
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'leaderboard'}
-              aria-label="Hero Leaderboard Center Tab"
-              onClick={() => setActiveTab('leaderboard')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'leaderboard'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <Trophy className="w-4 h-4" /> Hero Center
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'dashboard'}
-              aria-label="SLA Analytics Dashboard Tab"
-              onClick={() => setActiveTab('dashboard')}
-              className={`text-xs font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'dashboard'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" /> SLA Analytics
-            </button>
-          </nav>
-        </div>
-      </header>
+      </motion.div>
 
       {/* ------------------ MAIN INTERACTIVE CONTAINER ------------------ */}
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-6">
@@ -756,9 +642,10 @@ export default function App() {
                 >
                   <div className="xl:col-span-3">
                     <InteractiveMap 
-                      issues={issues} 
+                      issues={displayedIssues} 
                       onSelectIssue={handleSelectIssue}
                       selectedIssueId={selectedIssueId}
+                      theme={theme}
                     />
                   </div>
                   {/* Micro sidebar with short overview */}
@@ -774,15 +661,15 @@ export default function App() {
                       <div className="mt-4 border-t border-white/10 pt-3 space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-slate-400">Potholes & Roads:</span>
-                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'road').length} cases</span>
+                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'road').length} cases</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Garbage Overflows:</span>
-                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'garbage').length} cases</span>
+                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'garbage').length} cases</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Broken Streetlights:</span>
-                          <span className="font-bold font-mono text-white">{issues.filter(i => i.category === 'streetlight').length} cases</span>
+                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'streetlight').length} cases</span>
                         </div>
                       </div>
                     </div>
@@ -810,7 +697,7 @@ export default function App() {
                 >
                   <div className="lg:col-span-3">
                     <CommunityFeed 
-                      issues={issues}
+                      issues={displayedIssues}
                       selectedIssueId={selectedIssueId}
                       onSelectIssue={handleSelectIssue}
                       onVote={handleVote}
@@ -870,7 +757,7 @@ export default function App() {
                           handleSelectIssue(newIssue);
                         }}
                         activeArea={currentUser?.area || 'Mission District'}
-                        issues={issues}
+                        issues={displayedIssues}
                         currentUser={currentUser}
                         theme={theme}
                       />
@@ -908,7 +795,7 @@ export default function App() {
                   {currentUser ? (
                     <div className="max-w-4xl mx-auto">
                       <AuthorityControl 
-                        issues={issues}
+                        issues={displayedIssues}
                         onUpdateStatus={handleUpdateStatus}
                         onFastForwardTime={handleFastForwardTime}
                         theme={theme}
@@ -980,7 +867,67 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="w-full"
                 >
-                  <SlaDashboard issues={issues} usersList={usersList} theme={theme} />
+                  <SlaDashboard 
+                    issues={displayedIssues} 
+                    usersList={usersList} 
+                    theme={theme} 
+                  />
+                </motion.div>
+              )}
+
+              {/* 6.b Analytics Dashboard Tab (Admins) */}
+              {activeTab === 'analytics' && (
+                <motion.div
+                  key="analytics"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <AnalyticsDashboard 
+                    issues={displayedIssues} 
+                    theme={theme} 
+                  />
+                </motion.div>
+              )}
+
+              {/* 7. My Profile Tab */}
+              {activeTab === 'profile' && (
+                <motion.div
+                  key="profile"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  {currentUser ? (
+                    <UserProfile
+                      currentUser={currentUser}
+                      issues={issues}
+                      theme={theme}
+                      onViewIssue={(issue) => {
+                        handleSelectIssue(issue);
+                        setActiveTab('feed');
+                      }}
+                    />
+                  ) : (
+                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                      <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-cyan-500 to-indigo-600" />
+                      <UserCheck className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-bold text-white font-display">My Civic Profile</h3>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Sign in to view your profile, submitted reports, badges, and trust score.
+                      </p>
+                      <button
+                        onClick={() => setShowAuthModal(true)}
+                        className="mt-6 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer transition-all shadow-lg shadow-indigo-500/20"
+                      >
+                        Sign In to Continue
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1161,6 +1108,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── Global AI Chatbot ────────────────────────────────────────── */}
+      <CivicBot theme={theme} />
  
     </div>
   );

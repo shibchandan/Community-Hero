@@ -5,7 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { Issue, IssueCategory, User } from '../types';
-import { BarChart3, TrendingUp, AlertOctagon, Sparkles, Building2, ShieldAlert, CheckCircle, Clock, Trophy, Award, Zap } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertOctagon, Sparkles, Building2, ShieldAlert, CheckCircle, Clock, Trophy, Award, Zap, Download, Loader2 } from 'lucide-react';
+import { generatePrintReport } from '../lib/generatePrintReport';
 
 interface SlaDashboardProps {
   issues: Issue[];
@@ -25,6 +26,15 @@ interface PredictiveRisk {
 export default function SlaDashboard({ issues, usersList = [], theme = 'dark' }: SlaDashboardProps) {
   const [predictiveRisks, setPredictiveRisks] = useState<PredictiveRisk[]>([]);
   const [loadingRisks, setLoadingRisks] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    // Small delay to allow React to update the button state before blocking the thread
+    await new Promise(r => setTimeout(r, 100));
+    generatePrintReport({ issues, usersList, predictiveRisks });
+    setIsExporting(false);
+  };
 
   // Points & Gamification analytics math
   const totalPoints = usersList.reduce((sum, u) => sum + (u.points || 0), 0);
@@ -89,7 +99,37 @@ export default function SlaDashboard({ issues, usersList = [], theme = 'dark' }:
 
   return (
     <div className="space-y-6">
-      
+
+      {/* Export Header Banner */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border ${
+        theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
+        <div>
+          <h2 className={`text-base font-bold font-display flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+            <BarChart3 className="w-5 h-5 text-indigo-400" />
+            SLA Intelligence Dashboard
+          </h2>
+          <p className={`text-[11px] mt-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            Real-time municipal performance analytics &amp; predictive risk monitoring
+          </p>
+        </div>
+        <button
+          id="export-pdf-btn"
+          onClick={handleExport}
+          disabled={isExporting}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all cursor-pointer shadow-lg ${
+            isExporting
+              ? 'bg-indigo-400 cursor-wait shadow-indigo-400/20'
+              : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-500/25 hover:scale-105 active:scale-95'
+          }`}
+        >
+          {isExporting
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+            : <><Download className="w-4 h-4" /> Export PDF Report</>
+          }
+        </button>
+      </div>
+
       {/* KPI Stats Counter row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         
@@ -194,54 +234,126 @@ export default function SlaDashboard({ issues, usersList = [], theme = 'dark' }:
           </div>
         </div>
 
-        {/* Predictive Risks Cards */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bento-card shadow-xl flex flex-col">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-5.5 h-5.5 text-violet-500 dark:text-violet-400 animate-pulse" />
-            <h3 className={`text-base font-bold font-display font-sans ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>Predictive Infrastructure Risks</h3>
+        {/* Predictive Risks — Premium AI Intelligence Panel */}
+        <div className="lg:col-span-2 p-6 rounded-2xl bento-card shadow-xl flex flex-col gap-4">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-violet-400 animate-pulse" />
+              </div>
+              <div>
+                <h3 className={`text-sm font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>
+                  Predictive Risk Intelligence
+                </h3>
+                <p className={`text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
+                  AI-powered infrastructure hazard forecast
+                </p>
+              </div>
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 animate-pulse">
+              Live AI
+            </span>
           </div>
 
-          <div className="space-y-4 flex-1 overflow-y-auto max-h-[320px] pr-1">
+          <div className="space-y-3 flex-1 overflow-y-auto pr-0.5">
             {loadingRisks ? (
-              <span className={`text-xs italic block text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-550'}`}>Fetching real-time predictive data...</span>
-            ) : predictiveRisks.length === 0 ? (
-              <span className={`text-xs italic block text-center py-8 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-550'}`}>No risks mapped.</span>
-            ) : (
-              predictiveRisks.map(risk => (
-                <div 
-                  key={risk.id} 
-                  className={`p-3.5 rounded-xl border text-xs space-y-2 relative overflow-hidden transition-colors ${
-                    theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-0.5">
-                      <span className={`text-[9px] font-bold uppercase tracking-wider block font-mono ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>{risk.zone}</span>
-                      <h4 className={`font-bold text-xs ${theme === 'dark' ? 'text-gray-200' : 'text-slate-800'}`}>{risk.hazardType}</h4>
+              /* Shimmer Skeleton */
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className={`p-4 rounded-xl border animate-pulse ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="space-y-1.5">
+                        <div className={`h-2 w-24 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-300'}`} />
+                        <div className={`h-3 w-40 rounded-full ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-300'}`} />
+                      </div>
+                      <div className={`h-6 w-16 rounded-lg ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-300'}`} />
                     </div>
-                    <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 animate-pulse">
-                      {risk.probability}% Prob
-                    </span>
+                    <div className={`h-2 w-full rounded-full ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-200'}`} />
                   </div>
+                ))}
+              </div>
+            ) : predictiveRisks.length === 0 ? (
+              <div className="text-center py-8">
+                <Sparkles className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>No risk signals detected.</p>
+              </div>
+            ) : (
+              predictiveRisks.map(risk => {
+                const isHigh = risk.probability >= 80;
+                const isMed = risk.probability >= 60 && risk.probability < 80;
+                const color = isHigh
+                  ? { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20', bar: 'from-rose-500 to-orange-500', badge: 'bg-rose-500/15 text-rose-400 border-rose-500/20', label: '🔴 Critical' }
+                  : isMed
+                  ? { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', bar: 'from-amber-400 to-yellow-500', badge: 'bg-amber-500/15 text-amber-400 border-amber-500/20', label: '🟠 High Risk' }
+                  : { text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20', bar: 'from-cyan-400 to-blue-500', badge: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20', label: '🟡 Medium' };
 
-                  {/* Factor Bullets */}
-                  <div className="space-y-1">
-                    <span className={`text-[8px] font-extrabold uppercase tracking-wide ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Environmental Stress Factors</span>
-                    <ul className={`list-disc list-inside text-[10px] space-y-0.5 pl-0.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-650'}`}>
-                      {risk.factors.map((f, i) => (
-                        <li key={i}>{f}</li>
-                      ))}
-                    </ul>
-                  </div>
+                return (
+                  <div
+                    key={risk.id}
+                    className={`p-4 rounded-xl border text-xs space-y-3 transition-all duration-300 hover:scale-[1.01] ${
+                      theme === 'dark'
+                        ? `bg-white/4 ${color.border} hover:bg-white/8`
+                        : `bg-white ${color.border} shadow-sm hover:shadow-md`
+                    } border`}
+                  >
+                    {/* Top row: zone + threat badge */}
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="space-y-0.5 flex-1 min-w-0">
+                        <span className={`text-[9px] font-black uppercase tracking-widest block font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-slate-400'}`}>
+                          📍 {risk.zone}
+                        </span>
+                        <h4 className={`font-bold leading-snug ${theme === 'dark' ? 'text-gray-100' : 'text-slate-800'}`}>
+                          {risk.hazardType}
+                        </h4>
+                      </div>
+                      <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-lg border ${color.badge}`}>
+                        {color.label}
+                      </span>
+                    </div>
 
-                  {/* Recommended preventative action */}
-                  <div className={`mt-2 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded border ${
-                    theme === 'dark' ? 'text-violet-400 bg-violet-500/5 border-violet-500/10' : 'text-indigo-600 bg-indigo-50 border-indigo-100'
-                  }`}>
-                    Proactive Action: {risk.recommendedAction}
+                    {/* Probability Bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className={`text-[9px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-slate-400'}`}>
+                          Risk Probability
+                        </span>
+                        <span className={`text-[11px] font-black font-mono ${color.text}`}>
+                          {risk.probability}%
+                        </span>
+                      </div>
+                      <div className={`w-full h-2 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-slate-950' : 'bg-slate-100'}`}>
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${color.bar} shadow-md transition-all duration-1000`}
+                          style={{ width: `${risk.probability}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stress Factors */}
+                    <div className="space-y-1">
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-slate-400'}`}>
+                        Contributing Factors
+                      </span>
+                      <ul className="space-y-0.5">
+                        {risk.factors.map((f, i) => (
+                          <li key={i} className={`flex items-start gap-1.5 text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-600'}`}>
+                            <span className={`mt-0.5 shrink-0 ${color.text}`}>▸</span> {f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Recommended Action */}
+                    <div className={`flex items-start gap-2 text-[10px] font-semibold px-3 py-2 rounded-lg border ${
+                      theme === 'dark' ? `${color.bg} ${color.border} ${color.text}` : `${color.bg} ${color.border} ${color.text}`
+                    }`}>
+                      <Zap className="w-3 h-3 shrink-0 mt-0.5" />
+                      <span>{risk.recommendedAction}</span>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

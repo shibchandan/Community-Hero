@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { Issue, Comment, TimelineEvent, IssueCategory } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Issue, Comment, TimelineEvent, IssueCategory, SeverityLevel } from '../types';
 import { 
   CheckCircle2, AlertTriangle, MessageSquare, MapPin, 
   ThumbsUp, ThumbsDown, Clock, ShieldAlert, ChevronDown, 
-  ChevronUp, Send, User, Calendar 
+  ChevronUp, Send, User, Calendar, Search, X, SlidersHorizontal,
+  ArrowUpDown, Flame, Star, Share2
 } from 'lucide-react';
+import { BeforeAfterSlider } from './BeforeAfterSlider';
 
 interface CommunityFeedProps {
   issues: Issue[];
@@ -34,20 +36,50 @@ export default function CommunityFeed({
   const [expandedCommentsId, setExpandedCommentsId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<IssueCategory | 'all'>('all');
+  const [severityFilter, setSeverityFilter] = useState<SeverityLevel | 'all'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'upvotes' | 'sla_urgency'>('newest');
 
-  // Filter logic
-  const filteredIssues = issues.filter(issue => {
-    switch (activeTab) {
-      case 'unresolved':
-        return issue.status !== 'resolved' && issue.status !== 'closed';
-      case 'resolved':
-        return issue.status === 'resolved' || issue.status === 'closed';
-      case 'escalated':
-        return issue.escalated;
-      default:
-        return true;
+  // ── Multi-dimensional filter + sort logic ────────────────────────────────
+  const filteredIssues = useMemo(() => {
+    let result = issues.filter(issue => {
+      // Status tab filter
+      if (activeTab === 'unresolved' && (issue.status === 'resolved' || issue.status === 'closed')) return false;
+      if (activeTab === 'resolved' && issue.status !== 'resolved' && issue.status !== 'closed') return false;
+      if (activeTab === 'escalated' && !issue.escalated) return false;
+
+      // Category filter
+      if (categoryFilter !== 'all' && issue.category !== categoryFilter) return false;
+
+      // Severity filter
+      if (severityFilter !== 'all' && issue.severity !== severityFilter) return false;
+
+      // Text search (title + description + location)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const haystack = `${issue.title} ${issue.description} ${issue.location.address} ${issue.location.area} ${issue.department}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+
+      return true;
+    });
+
+    // Sort
+    if (sortBy === 'newest') {
+      result = result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === 'upvotes') {
+      result = result.sort((a, b) => (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes));
+    } else if (sortBy === 'sla_urgency') {
+      result = result.sort((a, b) => {
+        const urgencyA = (Date.now() - new Date(a.createdAt).getTime()) / (a.slaDays * 86400000);
+        const urgencyB = (Date.now() - new Date(b.createdAt).getTime()) / (b.slaDays * 86400000);
+        return urgencyB - urgencyA;
+      });
     }
-  });
+
+    return result;
+  }, [issues, activeTab, categoryFilter, severityFilter, searchQuery, sortBy]);
 
   const getCategoryBadge = (cat: IssueCategory) => {
     const map: Record<IssueCategory, { label: string, colorDark: string, colorLight: string }> = {
@@ -105,8 +137,8 @@ export default function CommunityFeed({
 
   return (
     <div className="flex flex-col gap-4">
-      
-      {/* Feed Filters Tabs */}
+
+      {/* ── Status Tabs ───────────────────────────────────────────────────── */}
       <div className={`flex p-1 rounded-xl backdrop-blur-md ${
         theme === 'dark' 
           ? 'bg-white/5 border border-white/10' 
@@ -127,6 +159,133 @@ export default function CommunityFeed({
             {tab === 'unresolved' ? 'Active Issues' : tab === 'resolved' ? 'Resolved Works' : tab === 'escalated' ? '🚨 SLA Breaches' : 'Backlog All'}
           </button>
         ))}
+      </div>
+
+      {/* ── Search Bar ───────────────────────────────────────────────────── */}
+      <div className="relative">
+        <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${
+          theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+        }`} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search issues by title, location, department..."
+          className={`w-full text-xs pl-10 pr-10 py-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+            theme === 'dark'
+              ? 'bg-white/5 border-white/10 text-slate-100 placeholder-slate-600 focus:bg-white/8 focus:border-indigo-500/40'
+              : 'bg-white/70 border-slate-200 text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-400'
+          }`}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all cursor-pointer ${
+              theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* ── Category Filter Chips ─────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1.5">
+        {([
+          { id: 'all', label: '🗂 All Categories' },
+          { id: 'road', label: '🚧 Road' },
+          { id: 'garbage', label: '🚮 Garbage' },
+          { id: 'water', label: '💧 Water' },
+          { id: 'streetlight', label: '💡 Streetlight' },
+          { id: 'safety', label: '🚨 Safety' },
+        ] as { id: IssueCategory | 'all'; label: string }[]).map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setCategoryFilter(cat.id)}
+            className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+              categoryFilter === cat.id
+                ? 'bg-indigo-600 text-white border-indigo-500/50 shadow-sm shadow-indigo-500/20'
+                : theme === 'dark'
+                  ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-xs'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Severity + Sort Row ──────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Severity */}
+        <div className="flex items-center gap-1.5">
+          <SlidersHorizontal className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Severity:</span>
+        </div>
+        {(['all', 'high', 'medium', 'low'] as const).map(sev => (
+          <button
+            key={sev}
+            onClick={() => setSeverityFilter(sev)}
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer capitalize ${
+              severityFilter === sev
+                ? sev === 'high' ? 'bg-rose-500 text-white border-rose-500/50'
+                  : sev === 'medium' ? 'bg-amber-500 text-white border-amber-500/50'
+                  : sev === 'low' ? 'bg-emerald-500 text-white border-emerald-500/50'
+                  : 'bg-indigo-600 text-white border-indigo-500/50'
+                : theme === 'dark'
+                  ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+            }`}
+          >
+            {sev === 'all' ? 'All' : sev}
+          </button>
+        ))}
+
+        {/* Sort — pushed to right */}
+        <div className="ml-auto flex items-center gap-1.5">
+          <ArrowUpDown className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Sort:</span>
+          {([
+            { id: 'newest', label: 'Newest' },
+            { id: 'upvotes', label: '👍 Votes' },
+            { id: 'sla_urgency', label: '🔥 Urgency' },
+          ] as { id: typeof sortBy; label: string }[]).map(s => (
+            <button
+              key={s.id}
+              onClick={() => setSortBy(s.id)}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                sortBy === s.id
+                  ? 'bg-indigo-600 text-white border-indigo-500/50 shadow-sm'
+                  : theme === 'dark'
+                    ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* ── Results Count ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <span className={`text-[11px] font-bold ${
+          theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+        }`}>
+          Showing <span className={`font-black ${
+            theme === 'dark' ? 'text-white' : 'text-slate-900'
+          }`}>{filteredIssues.length}</span> of {issues.length} reports
+          {searchQuery && <span className={theme === 'dark' ? ' text-indigo-400' : ' text-indigo-600'}> for "{searchQuery}"</span>}
+        </span>
+        {(searchQuery || categoryFilter !== 'all' || severityFilter !== 'all' || sortBy !== 'newest') && (
+          <button
+            onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setSeverityFilter('all'); setSortBy('newest'); }}
+            className={`text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
+              theme === 'dark' ? 'text-rose-400 hover:text-rose-300' : 'text-rose-500 hover:text-rose-700'
+            }`}
+          >
+            <X className="w-3 h-3" /> Clear filters
+          </button>
+        )}
       </div>
 
       {/* Feed List */}
@@ -211,6 +370,16 @@ export default function CommunityFeed({
                   {issue.description}
                 </p>
 
+                {/* Media / Before-After Slider */}
+                {issue.mediaUrl && (
+                  <div className="mt-4">
+                    <BeforeAfterSlider 
+                      beforeUrl={issue.mediaUrl} 
+                      afterUrl={issue.resolutionProofUrl} 
+                    />
+                  </div>
+                )}
+
                 {/* Geo Location / Department Label */}
                 <div className={`flex flex-wrap gap-4 mt-4 text-[11px] border-t pt-3 ${
                   theme === 'dark' 
@@ -249,16 +418,13 @@ export default function CommunityFeed({
                   </div>
                 )}
 
-                {/* Proof of Resolution (if available) */}
+                {/* Proof of Resolution (if available) - compact text version now that slider exists */}
                 {issue.resolvedAt && (
                   <div className={`mt-4 p-3 rounded-xl flex flex-col md:flex-row gap-3 items-start md:items-center ${
                     theme === 'dark' 
                       ? 'bg-emerald-500/5 border border-emerald-500/10' 
                       : 'bg-emerald-50 border border-emerald-200'
                   }`}>
-                    <img src={issue.resolutionProofUrl || ''} alt="Proof" referrerPolicy="no-referrer" className={`w-20 aspect-square rounded-lg object-cover border ${
-                      theme === 'dark' ? 'border-emerald-500/20' : 'border-emerald-300'
-                    }`} />
                     <div className="flex-1 space-y-1">
                       <h4 className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -352,7 +518,19 @@ export default function CommunityFeed({
                             onClick={() => onVote(issue.id, 'invalid')}
                             className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-rose-500 border border-rose-500/20 hover:bg-rose-500/10 transition-all flex items-center gap-1 cursor-pointer"
                           >
-                            <ThumbsDown className="w-3.5 h-3.5" /> Flag Fake/Invalid
+                            <ThumbsDown className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        </div>
+                        <div className="flex gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-slate-200 dark:border-slate-800">
+                          <button
+                            onClick={() => {
+                              const url = `${window.location.origin}${window.location.pathname}?issueId=${issue.id}`;
+                              navigator.clipboard.writeText(url);
+                              alert('Link copied to clipboard!');
+                            }}
+                            className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/10 transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Share2 className="w-3.5 h-3.5" /> Share Link
                           </button>
                         </div>
                       </div>
