@@ -92,7 +92,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
   const handleGoogleSignIn = () => {
     setError(null);
-    setSuccessMessage('Google Sign-In is unavailable in the current sandbox environment. Please use email registration.');
+    setSuccessMessage('Google Sign-In is unavailable in this environment. Please use email registration.');
   };
 
   return (

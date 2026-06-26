@@ -531,7 +531,7 @@ export default function App() {
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
               </span>
               <div className="text-xs flex flex-wrap items-center gap-1.5">
-                <span className={`font-bold uppercase tracking-wider text-[10px] ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>Sandbox</span>
+                <span className={`font-bold uppercase tracking-wider text-[10px] ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`}>LIVE NETWORK</span>
                 <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
                 <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{currentUser.name}</span>
                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
