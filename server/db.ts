@@ -12,14 +12,22 @@ export interface Credential {
 }
 
 // isLocalMode: use local JSON files when we don't have a service account key
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : '';
-const hasAdminKey = !!serviceAccountPath && fs.existsSync(serviceAccountPath);
+const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '';
+const isFilePath = envKey.endsWith('.json') || envKey.startsWith('./');
+const serviceAccountPath = isFilePath ? path.resolve(process.cwd(), envKey) : '';
+const hasAdminKey = (isFilePath && fs.existsSync(serviceAccountPath)) || (!isFilePath && envKey.includes('{'));
 export const isLocalMode = !hasAdminKey;
 
 export let db: any = null;
 
 if (!isLocalMode) {
-  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  let serviceAccount;
+  if (isFilePath) {
+    serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  } else {
+    serviceAccount = JSON.parse(envKey);
+  }
+  
   if (getApps().length === 0) {
     initializeApp({
       credential: cert(serviceAccount)

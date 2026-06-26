@@ -6,14 +6,24 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : '';
+const envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '';
+const isFilePath = envKey.endsWith('.json') || envKey.startsWith('./');
+const serviceAccountPath = isFilePath ? path.resolve(process.cwd(), envKey) : '';
 
-if (!serviceAccountPath || !fs.existsSync(serviceAccountPath)) {
-  console.error("❌ Cannot migrate data. FIREBASE_SERVICE_ACCOUNT_KEY is missing or invalid in .env");
-  process.exit(1);
+let serviceAccount;
+if (isFilePath) {
+  if (!fs.existsSync(serviceAccountPath)) {
+    console.error("❌ Cannot migrate data. FIREBASE_SERVICE_ACCOUNT_KEY path is invalid in .env");
+    process.exit(1);
+  }
+  serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+} else {
+  if (!envKey.includes('{')) {
+    console.error("❌ Cannot migrate data. FIREBASE_SERVICE_ACCOUNT_KEY is missing or invalid in .env");
+    process.exit(1);
+  }
+  serviceAccount = JSON.parse(envKey);
 }
-
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
 initializeApp({
   credential: cert(serviceAccount)
