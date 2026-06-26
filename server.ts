@@ -9,6 +9,9 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cors from 'cors';
+import hpp from 'hpp';
+import mongoSanitize from 'express-mongo-sanitize';
 import { router as apiRouter } from './server/routes';
 
 dotenv.config();
@@ -20,29 +23,60 @@ const PORT = 3000;
 app.set('trust proxy', 1);
 
 // Set up security headers using Helmet
-// Note: We set contentSecurityPolicy to false in dev/iframe environment to allow Vite's inline script injection,
-// while keeping other robust security headers (XSS filter, frame options, clickjacking protection, etc.) active.
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Allowed for Vite dev/inline scripts
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://*.openstreetmap.org", "https://*.tile.openstreetmap.org", "https://nominatim.openstreetmap.org"],
+      connectSrc: ["'self'", "https://nominatim.openstreetmap.org", "ws:", "wss:"], // WebSockets for dev and external APIs
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
   crossOriginEmbedderPolicy: false
 }));
 
-// Apply basic rate limiting to API routes to protect against abuse and spam reports
+// Apply basic rate limiting to API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 150, // Limit each IP to 150 requests per window
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    error: 'Too many requests from this IP, please try again after 15 minutes.'
-  }
+  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
 });
+
+// Strict rate limiter for authentication routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Max 10 login/register requests per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts from this IP, please try again after 15 minutes.' }
+});
+
+// Configure CORS
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-production-domain.com'] // Replace with actual production domain
+    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173'],
+  credentials: true
+}));
 
 // Set up JSON & URL-encoded body parsing with file limits
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Apply rate limiter specifically to API endpoints
+// Sanitize user input to prevent NoSQL injection
+app.use(mongoSanitize());
+
+// Protect against HTTP Parameter Pollution attacks
+app.use(hpp());
+
+// Apply rate limiters
+app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter, apiRouter);
 
 // Set up Vite Development Middleware or Static Production Build paths
