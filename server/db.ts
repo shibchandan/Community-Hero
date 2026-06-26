@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { User, Issue } from '../src/types';
 
 export interface Credential {
@@ -11,28 +11,22 @@ export interface Credential {
   userId: string;
 }
 
-// Read Firebase configuration dynamically from the config file
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
-if (!fs.existsSync(configPath)) {
-  fs.writeFileSync(configPath, JSON.stringify({
-    apiKey: "mock_api_key_for_local_fallback",
-    authDomain: "mock-project.firebaseapp.com",
-    projectId: "mock-project",
-    storageBucket: "mock-project.appspot.com",
-    messagingSenderId: "1234567890",
-    appId: "1:1234567890:web:1234567890abcdef",
-    firestoreDatabaseId: "(default)"
-  }, null, 2), 'utf8');
+// isLocalMode: use local JSON files when we don't have a service account key
+const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_KEY) : '';
+const hasAdminKey = !!serviceAccountPath && fs.existsSync(serviceAccountPath);
+export const isLocalMode = !hasAdminKey;
+
+export let db: any = null;
+
+if (!isLocalMode) {
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  if (getApps().length === 0) {
+    initializeApp({
+      credential: cert(serviceAccount)
+    });
+  }
+  db = getFirestore();
 }
-const firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-
-export const isLocalMode = !firebaseConfig.projectId || firebaseConfig.projectId === 'mock-project';
-
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore using the configured database ID
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
 
 // Local file storage paths for fallback persistence mode
 const usersFile = path.join(process.cwd(), 'server', 'data_users.json');
@@ -71,9 +65,8 @@ export async function getCredential(email: string): Promise<Credential | null> {
     const creds = readJsonFile(credentialsFile) || {};
     return creds[sanitizedEmail] || null;
   }
-  const docRef = doc(db, 'credentials', sanitizedEmail);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
+  const docSnap = await db.collection('credentials').doc(sanitizedEmail).get();
+  if (docSnap.exists) {
     return docSnap.data() as Credential;
   }
   return null;
@@ -87,7 +80,7 @@ export async function saveCredential(email: string, passwordHash: string, userId
     writeJsonFile(credentialsFile, creds);
     return;
   }
-  await setDoc(doc(db, 'credentials', sanitizedEmail), {
+  await db.collection('credentials').doc(sanitizedEmail).set({
     email: sanitizedEmail,
     passwordHash,
     userId
@@ -105,8 +98,8 @@ export async function getUsers(): Promise<User[]> {
     const list = readJsonFile(usersFile);
     return list || [];
   }
-  const snapshot = await getDocs(collection(db, 'users'));
-  return snapshot.docs.map(doc => doc.data() as User);
+  const snapshot = await db.collection('users').get();
+  return snapshot.docs.map((doc: any) => doc.data() as User);
 }
 
 export async function saveUser(user: User): Promise<void> {
@@ -121,7 +114,7 @@ export async function saveUser(user: User): Promise<void> {
     writeJsonFile(usersFile, list);
     return;
   }
-  await setDoc(doc(db, 'users', user.id), user);
+  await db.collection('users').doc(user.id).set(user);
 }
 
 export async function getIssues(): Promise<Issue[]> {
@@ -129,8 +122,8 @@ export async function getIssues(): Promise<Issue[]> {
     const list = readJsonFile(issuesFile);
     return list || [];
   }
-  const snapshot = await getDocs(collection(db, 'issues'));
-  return snapshot.docs.map(doc => doc.data() as Issue);
+  const snapshot = await db.collection('issues').get();
+  return snapshot.docs.map((doc: any) => doc.data() as Issue);
 }
 
 export async function saveIssue(issue: Issue): Promise<void> {
@@ -145,7 +138,7 @@ export async function saveIssue(issue: Issue): Promise<void> {
     writeJsonFile(issuesFile, list);
     return;
   }
-  await setDoc(doc(db, 'issues', issue.id), issue);
+  await db.collection('issues').doc(issue.id).set(issue);
 }
 
 export async function getIssueById(id: string): Promise<Issue | null> {
@@ -153,9 +146,8 @@ export async function getIssueById(id: string): Promise<Issue | null> {
     const list = await getIssues();
     return list.find(i => i.id === id) || null;
   }
-  const docRef = doc(db, 'issues', id);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
+  const docSnap = await db.collection('issues').doc(id).get();
+  if (docSnap.exists) {
     return docSnap.data() as Issue;
   }
   return null;
@@ -166,9 +158,8 @@ export async function getCurrentSession(): Promise<User | null> {
     const session = readJsonFile(sessionFile);
     return session && session.currentUserSession ? session.currentUserSession : null;
   }
-  const docRef = doc(db, 'metadata', 'session');
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
+  const docSnap = await db.collection('metadata').doc('session').get();
+  if (docSnap.exists) {
     const data = docSnap.data();
     return data.currentUserSession || null;
   }
@@ -180,7 +171,7 @@ export async function setCurrentSession(user: User | null): Promise<void> {
     writeJsonFile(sessionFile, { currentUserSession: user });
     return;
   }
-  await setDoc(doc(db, 'metadata', 'session'), { currentUserSession: user });
+  await db.collection('metadata').doc('session').set({ currentUserSession: user });
 }
 
 // Seeding DB if collections/files are empty (providing a rich initial dataset)

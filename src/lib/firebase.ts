@@ -3,8 +3,14 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Detect if running in local/mock mode (no real Firebase project)
-export const isLocalMode = !firebaseConfig.projectId || firebaseConfig.projectId === 'mock-project';
+// isLocalMode: skip Firestore live listeners and use REST API polling when:
+// 1. No real Firebase project configured, OR
+// 2. Running on localhost (window.location.hostname is localhost/127.0.0.1)
+export const isLocalMode =
+  !firebaseConfig.projectId ||
+  firebaseConfig.projectId === 'mock-project' ||
+  (typeof window !== 'undefined' &&
+    /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname));
 
 // Initialize Firebase App (safe even with mock config)
 const app = initializeApp(firebaseConfig);

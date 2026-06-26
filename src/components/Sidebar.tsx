@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, ChevronLeft, ChevronRight, Layers, LogOut,
-  LogIn, Sun, Moon, RefreshCw, X, TrendingUp
+  LogIn, Sun, Moon, RefreshCw, X, TrendingUp, Link2, MessageCircle
 } from 'lucide-react';
 import { User } from '../types';
 import { NotificationBell } from './NotificationDrawer';
@@ -15,7 +15,7 @@ import { Issue } from '../types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics';
+type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -36,13 +36,15 @@ interface SidebarProps {
 // ── Nav Items ─────────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { id: 'map'        as TabId, label: 'Explore Radar',  icon: Map,       group: 'main' },
-  { id: 'feed'       as TabId, label: 'Civic Feed',     icon: FileText,  group: 'main' },
-  { id: 'report'     as TabId, label: 'Report Hazard',  icon: Sparkles,  group: 'main' },
-  { id: 'authority'  as TabId, label: 'SLA Dispatch',   icon: Shield,    group: 'tools' },
-  { id: 'leaderboard'as TabId, label: 'Hero Center',    icon: Trophy,    group: 'tools' },
-  { id: 'dashboard'  as TabId, label: 'SLA Dashboard',  icon: BarChart3, group: 'tools' },
-  { id: 'analytics'  as TabId, label: 'Admin Analytics', icon: TrendingUp, group: 'tools' },
+  { id: 'map'        as TabId, label: 'Explore Radar',    icon: Map,            group: 'main' },
+  { id: 'feed'       as TabId, label: 'Civic Feed',        icon: FileText,       group: 'main' },
+  { id: 'report'     as TabId, label: 'Report Hazard',     icon: Sparkles,       group: 'main' },
+  { id: 'authority'  as TabId, label: 'SLA Dispatch',      icon: Shield,         group: 'tools' },
+  { id: 'leaderboard'as TabId, label: 'Hero Center',       icon: Trophy,         group: 'tools' },
+  { id: 'dashboard'  as TabId, label: 'SLA Dashboard',     icon: BarChart3,      group: 'tools' },
+  { id: 'analytics'  as TabId, label: 'Admin Analytics',   icon: TrendingUp,     group: 'tools' },
+  { id: 'ledger'     as TabId, label: 'Proof Ledger',       icon: Link2,          group: 'advanced' },
+  { id: 'whatsapp'   as TabId, label: 'WhatsApp Bot',       icon: MessageCircle,  group: 'advanced' },
 ];
 
 // ── NavButton ─────────────────────────────────────────────────────────────────
@@ -116,6 +118,7 @@ export default function Sidebar({
 
   const mainItems = NAV_ITEMS.filter(n => n.group === 'main');
   const toolItems = NAV_ITEMS.filter(n => n.group === 'tools');
+  const advancedItems = NAV_ITEMS.filter(n => n.group === 'advanced');
 
   // Avatar initials
   const initials = currentUser
@@ -153,7 +156,7 @@ export default function Sidebar({
             >
               <p className={`text-sm font-black font-display leading-tight whitespace-nowrap ${
                 theme === 'dark' ? 'text-white' : 'text-slate-900'
-              }`}>Community Hero</p>
+              }`}>Samadhan Setu</p>
               <p className={`text-[9px] font-bold uppercase tracking-widest whitespace-nowrap ${
                 theme === 'dark' ? 'text-cyan-400' : 'text-indigo-500'
               }`}>Civic Engine</p>
@@ -163,7 +166,7 @@ export default function Sidebar({
       </div>
 
       {/* ── Main Nav ───────────────────────────────────────────────── */}
-      <nav role="tablist" aria-label="Sidebar Navigation" className="flex flex-col gap-1 px-2 flex-1">
+      <nav role="tablist" aria-label="Sidebar Navigation" className="flex flex-col gap-1 px-2 flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full pr-1">
         {/* Group: Core */}
         <AnimatePresence initial={false}>
           {expanded && (
@@ -209,6 +212,35 @@ export default function Sidebar({
           )}
         </AnimatePresence>
         {toolItems.map(item => (
+          <NavButton
+            key={item.id}
+            item={item}
+            active={activeTab === item.id}
+            expanded={expanded}
+            theme={theme}
+            onClick={() => setActiveTab(item.id)}
+          />
+        ))}
+
+        {/* Divider */}
+        <div className={`my-2 mx-2 h-px ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
+
+        {/* Group: Advanced */}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={`text-[9px] font-black uppercase tracking-widest px-2 mb-1 ${
+                theme === 'dark' ? 'text-purple-600' : 'text-purple-400'
+              }`}
+            >
+              Web3 & IoT
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {advancedItems.map(item => (
           <NavButton
             key={item.id}
             item={item}
