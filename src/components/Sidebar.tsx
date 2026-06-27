@@ -65,7 +65,9 @@ function NavButton({
       aria-selected={active}
       title={!expanded ? item.label : undefined}
       onClick={onClick}
-      className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group overflow-hidden ${
+      className={`relative w-full flex items-center gap-3 py-2 rounded-xl transition-all duration-200 cursor-pointer group overflow-hidden ${
+        expanded ? 'px-3' : 'px-0 justify-center'
+      } ${
         active
           ? 'text-white'
           : theme === 'dark'
@@ -166,22 +168,7 @@ export default function Sidebar({
       </div>
 
       {/* ── Main Nav ───────────────────────────────────────────────── */}
-      <nav role="tablist" aria-label="Sidebar Navigation" className="flex flex-col gap-1 px-2 flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full pr-1">
-        {/* Group: Core */}
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={`text-[9px] font-black uppercase tracking-widest px-2 mb-1 ${
-                theme === 'dark' ? 'text-slate-600' : 'text-slate-400'
-              }`}
-            >
-              Core
-            </motion.p>
-          )}
-        </AnimatePresence>
+      <nav role="tablist" aria-label="Sidebar Navigation" className="flex flex-col gap-2 px-2 flex-1 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full pr-1">
         {mainItems.map(item => (
           <NavButton
             key={item.id}
@@ -194,23 +181,8 @@ export default function Sidebar({
         ))}
 
         {/* Divider */}
-        <div className={`my-2 mx-2 h-px ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
+        <div className={`h-px mx-2 my-0.5 opacity-60 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
 
-        {/* Group: Tools */}
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={`text-[9px] font-black uppercase tracking-widest px-2 mb-1 ${
-                theme === 'dark' ? 'text-slate-600' : 'text-slate-400'
-              }`}
-            >
-              Intelligence
-            </motion.p>
-          )}
-        </AnimatePresence>
         {toolItems.map(item => (
           <NavButton
             key={item.id}
@@ -223,23 +195,8 @@ export default function Sidebar({
         ))}
 
         {/* Divider */}
-        <div className={`my-2 mx-2 h-px ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
+        <div className={`h-px mx-2 my-0.5 opacity-60 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
 
-        {/* Group: Advanced */}
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={`text-[9px] font-black uppercase tracking-widest px-2 mb-1 ${
-                theme === 'dark' ? 'text-purple-600' : 'text-purple-400'
-              }`}
-            >
-              Web3 & IoT
-            </motion.p>
-          )}
-        </AnimatePresence>
         {advancedItems.map(item => (
           <NavButton
             key={item.id}
@@ -254,7 +211,8 @@ export default function Sidebar({
         {/* Profile — only when logged in */}
         {currentUser && (
           <>
-            <div className={`my-2 mx-2 h-px ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
+            {/* Divider */}
+            <div className={`h-px mx-2 my-0.5 opacity-60 ${theme === 'dark' ? 'bg-white/10' : 'bg-slate-200'}`} />
             <NavButton
               item={{ id: 'profile', label: 'My Profile', icon: UserCheck, group: 'account' }}
               active={activeTab === 'profile'}
@@ -271,21 +229,22 @@ export default function Sidebar({
         theme === 'dark' ? 'border-white/10' : 'border-slate-200'
       }`}>
 
-        {/* Notifications (icon-mode) */}
-        <div className={expanded ? 'px-1' : 'flex justify-center'}>
-          <NotificationBell
-            issues={issues}
-            currentUser={currentUser}
-            theme={theme}
-            onSelectIssue={onSelectIssue}
-          />
-        </div>
+        {/* Notifications */}
+        <NotificationBell
+          issues={issues}
+          currentUser={currentUser}
+          theme={theme}
+          onSelectIssue={onSelectIssue}
+          expanded={expanded}
+        />
 
         {/* Theme toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all group ${
+          className={`w-full flex items-center gap-3 py-2 rounded-xl cursor-pointer transition-all duration-200 group overflow-hidden ${
+            expanded ? 'px-3' : 'px-0 justify-center'
+          } ${
             theme === 'dark'
               ? 'text-slate-400 hover:text-white hover:bg-white/8'
               : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
@@ -314,10 +273,12 @@ export default function Sidebar({
         {currentUser ? (
           <>
             {/* User avatar + name */}
-            <div className={`flex items-center gap-3 px-3 py-2 rounded-xl ${
+            <div className={`w-full flex items-center gap-3 py-2 rounded-xl overflow-hidden ${
+              expanded ? 'px-3' : 'px-0 justify-center'
+            } ${
               theme === 'dark' ? 'bg-white/5' : 'bg-slate-100'
             }`}>
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-black shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-black shrink-0">
                 {initials}
               </div>
               <AnimatePresence initial={false}>
@@ -329,7 +290,7 @@ export default function Sidebar({
                     transition={{ duration: 0.15 }}
                     className="overflow-hidden min-w-0"
                   >
-                    <p className={`text-[11px] font-bold truncate max-w-[120px] ${
+                    <p className={`text-xs font-bold truncate max-w-[120px] ${
                       theme === 'dark' ? 'text-slate-200' : 'text-slate-800'
                     }`}>{currentUser.name}</p>
                     <p className={`text-[9px] font-bold uppercase tracking-wider ${
@@ -344,7 +305,9 @@ export default function Sidebar({
             <button
               onClick={onToggleRole}
               title="Toggle Role"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all group ${
+              className={`w-full flex items-center gap-3 py-2 rounded-xl cursor-pointer transition-all duration-200 group overflow-hidden ${
+                expanded ? 'px-3' : 'px-0 justify-center'
+              } ${
                 theme === 'dark'
                   ? 'text-indigo-400 hover:text-white hover:bg-indigo-500/15'
                   : 'text-indigo-600 hover:bg-indigo-50'
@@ -370,7 +333,9 @@ export default function Sidebar({
             <button
               onClick={onLogout}
               title="Sign Out"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all group ${
+              className={`w-full flex items-center gap-3 py-2 rounded-xl cursor-pointer transition-all duration-200 group overflow-hidden ${
+                expanded ? 'px-3' : 'px-0 justify-center'
+              } ${
                 theme === 'dark'
                   ? 'text-rose-400 hover:text-white hover:bg-rose-500/15'
                   : 'text-rose-500 hover:bg-rose-50'
@@ -396,7 +361,9 @@ export default function Sidebar({
           <button
             onClick={onLogin}
             title="Sign In"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition-all text-xs font-bold shadow-lg shadow-indigo-500/20"
+            className={`w-full flex items-center gap-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition-all duration-200 group overflow-hidden text-xs font-bold shadow-lg shadow-indigo-500/20 ${
+              expanded ? 'px-3' : 'px-0 justify-center'
+            }`}
           >
             <LogIn className="w-5 h-5 shrink-0" />
             <AnimatePresence initial={false}>

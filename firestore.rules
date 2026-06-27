@@ -1,8 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 1. Default-deny catch-all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Entity validation helper functions
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role'])
+        && data.id is string
+        && data.id.size() <= 128
+        && data.name is string
+        && data.name.size() <= 100
+        && data.email is string
+        && data.email.size() <= 150
+        && (data.role == 'citizen' || data.role == 'authority')
+        && (!data.keys().contains('points') || data.points is number)
+        && (!data.keys().contains('trust_score') || data.trust_score is number)
+        && (!data.keys().contains('completed_reports') || data.completed_reports is number)
+        && (!data.keys().contains('validations_count') || data.validations_count is number)
+        && (!data.keys().contains('area') || data.area is string);
+    }
+
+    function isValidIssue(data) {
+      return data.keys().hasAll(['id', 'category', 'title', 'description', 'status', 'reportedBy'])
+        && data.id is string
+        && data.id.size() <= 128
+        && (data.category == 'road' || data.category == 'garbage' || data.category == 'water' || data.category == 'streetlight' || data.category == 'safety')
+        && data.title is string
+        && data.title.size() <= 200
+        && data.description is string
+        && data.description.size() <= 2000
+        && (data.status == 'reported' || data.status == 'ai_verified' || data.status == 'community_verified' || data.status == 'assigned' || data.status == 'in_progress' || data.status == 'resolved' || data.status == 'closed')
+        && data.reportedBy is string
+        && data.reportedBy.size() <= 128
+        && (!data.keys().contains('reportedByName') || data.reportedByName is string)
+        && (!data.keys().contains('mediaUrl') || data.mediaUrl is string)
+        && (!data.keys().contains('department') || data.department is string)
+        && (!data.keys().contains('severity') || data.severity == 'low' || data.severity == 'medium' || data.severity == 'high')
+        && (!data.keys().contains('upvotes') || data.upvotes is number)
+        && (!data.keys().contains('downvotes') || data.downvotes is number)
+        && (!data.keys().contains('slaDays') || data.slaDays is number)
+        && (!data.keys().contains('escalated') || data.escalated is bool);
+    }
+
+    // users collection rules
+    match /users/{userId} {
+      allow get, list: if true;
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming());
+      allow delete: if false;
+    }
+
+    // issues collection rules
+    match /issues/{issueId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && incoming().reportedBy == request.auth.uid && isValidIssue(incoming());
+      allow update: if isSignedIn() && isValidIssue(incoming());
+      allow delete: if isSignedIn() && existing().reportedBy == request.auth.uid;
     }
   }
 }

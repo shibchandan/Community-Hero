@@ -565,7 +565,7 @@ export default function App() {
                 )}
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end w-full md:w-auto">
               <select
                 value={globalCityFilter}
                 onChange={(e) => setGlobalCityFilter(e.target.value)}
@@ -613,7 +613,7 @@ export default function App() {
               </span>
               <span className={`font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>Browsing as Guest — sign in to report, vote &amp; earn points</span>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center justify-center md:justify-end w-full md:w-auto">
               <select
                 value={globalCityFilter}
                 onChange={(e) => setGlobalCityFilter(e.target.value)}
@@ -787,6 +787,19 @@ export default function App() {
                     <div className="max-w-3xl mx-auto">
                       <IssueReporter 
                         onIssueReported={(newIssue) => {
+                          // Update issues state directly to include the new issue
+                          setIssues((prev) => {
+                            if (prev.some(i => i.id === newIssue.id)) return prev;
+                            return [newIssue, ...prev];
+                          });
+                          
+                          // Set city filter to the reported city so it instantly appears in active filter
+                          if (newIssue.location?.city) {
+                            setGlobalCityFilter(newIssue.location.city);
+                          }
+                          setGlobalAreaFilter('All Areas');
+                          
+                          // Select the reported issue
                           handleSelectIssue(newIssue);
                         }}
                         activeArea={currentUser?.area || 'Mission District'}

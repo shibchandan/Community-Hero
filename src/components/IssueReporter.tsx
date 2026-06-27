@@ -169,8 +169,25 @@ export default function IssueReporter({
           const data = await res.json();
           if (data && data.address) {
             setAddress(data.display_name || `Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-            setCity(data.address.city || data.address.town || data.address.village || data.address.state || 'Unknown City');
-            setArea(data.address.suburb || data.address.neighbourhood || data.address.residential || 'Local Area');
+            
+            // Automatically extract actual city name (e.g., Bidhannagar or Kolkata)
+            const extractedCity = data.address.city || 
+                                  data.address.town || 
+                                  data.address.municipality || 
+                                  data.address.city_district || 
+                                  data.address.village || 
+                                  data.address.suburb || 
+                                  data.address.state || 
+                                  'Unknown City';
+            setCity(extractedCity);
+            
+            // Automatically extract suburb / neighborhood
+            const extractedArea = data.address.suburb || 
+                                  data.address.neighbourhood || 
+                                  data.address.residential || 
+                                  data.address.subdistrict || 
+                                  'Local Area';
+            setArea(extractedArea);
           } else {
             setAddress(`Device GPS: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
             setCity('Unknown City');
@@ -682,12 +699,12 @@ export default function IssueReporter({
                     <div className="flex items-center justify-between w-full">
                       <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${theme === 'dark' || locationMode === 'auto' ? 'text-white' : 'text-slate-800'}`}>
                         <MapPin className={`w-3.5 h-3.5 ${locationMode === 'auto' ? 'text-indigo-400 animate-pulse' : theme === 'dark' ? 'text-gray-400' : 'text-indigo-600'}`} />
-                        GPS Location
+                        Use Current Location
                       </span>
                       {geoLoading && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
                     </div>
                     <p className="text-[10px] opacity-75 truncate">
-                      {locationMode === 'auto' && !geoLoading ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "Detect from browser GPS"}
+                      {locationMode === 'auto' && !geoLoading ? `${lat.toFixed(4)}, ${lng.toFixed(4)}` : "Extract city, address & suburb from GPS"}
                     </p>
                   </button>
 

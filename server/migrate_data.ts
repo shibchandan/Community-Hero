@@ -34,39 +34,50 @@ const db = getFirestore();
 async function migrate() {
   console.log("🚀 Starting data migration from local JSON to Firestore...");
 
-  // 1. Migrate Users
-  const usersPath = path.join(process.cwd(), 'server', 'data_users.json');
-  if (fs.existsSync(usersPath)) {
-    const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
-    console.log(`Migrating ${users.length} users...`);
-    for (const user of users) {
-      await db.collection('users').doc(user.id).set(user);
+  try {
+    // 1. Migrate Users
+    const usersPath = path.join(process.cwd(), 'server', 'data_users.json');
+    if (fs.existsSync(usersPath)) {
+      const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+      console.log(`Migrating ${users.length} users...`);
+      for (const user of users) {
+        await db.collection('users').doc(user.id).set(user);
+      }
     }
-  }
 
-  // 2. Migrate Issues
-  const issuesPath = path.join(process.cwd(), 'server', 'data_issues.json');
-  if (fs.existsSync(issuesPath)) {
-    const issues = JSON.parse(fs.readFileSync(issuesPath, 'utf8'));
-    console.log(`Migrating ${issues.length} issues...`);
-    for (const issue of issues) {
-      await db.collection('issues').doc(issue.id).set(issue);
+    // 2. Migrate Issues
+    const issuesPath = path.join(process.cwd(), 'server', 'data_issues.json');
+    if (fs.existsSync(issuesPath)) {
+      const issues = JSON.parse(fs.readFileSync(issuesPath, 'utf8'));
+      console.log(`Migrating ${issues.length} issues...`);
+      for (const issue of issues) {
+        await db.collection('issues').doc(issue.id).set(issue);
+      }
     }
-  }
 
-  // 3. Migrate Credentials
-  const credsPath = path.join(process.cwd(), 'server', 'data_credentials.json');
-  if (fs.existsSync(credsPath)) {
-    const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
-    const emails = Object.keys(creds);
-    console.log(`Migrating ${emails.length} credentials...`);
-    for (const email of emails) {
-      await db.collection('credentials').doc(email).set(creds[email]);
+    // 3. Migrate Credentials
+    const credsPath = path.join(process.cwd(), 'server', 'data_credentials.json');
+    if (fs.existsSync(credsPath)) {
+      const creds = JSON.parse(fs.readFileSync(credsPath, 'utf8'));
+      const emails = Object.keys(creds);
+      console.log(`Migrating ${emails.length} credentials...`);
+      for (const email of emails) {
+        await db.collection('credentials').doc(email).set(creds[email]);
+      }
     }
-  }
 
-  console.log("✅ Migration complete! Your Firestore database is fully populated.");
-  process.exit(0);
+    console.log("✅ Migration complete! Your Firestore database is fully populated.");
+    process.exit(0);
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (err?.code === 5 || msg.includes('NOT_FOUND') || msg.includes('Database') || msg.includes('not found')) {
+      console.error("\n❌ ERROR: Your Firestore database 'default' was not found or has not been initialized in your Firebase console.");
+      console.error("👉 Please go to your Firebase Console, click on 'Firestore Database', and click 'Create Database' first.");
+      console.error("👉 Once initialized, you can re-run this migration command safely.\n");
+      process.exit(1);
+    }
+    throw err;
+  }
 }
 
 migrate().catch(console.error);

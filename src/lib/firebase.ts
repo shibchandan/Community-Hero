@@ -13,6 +13,7 @@ export const isLocalMode =
     /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname));
 
 // Initialize Firebase App (safe even with mock config)
+console.log("Initializing Firebase with real credentials - v1.0.1");
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (used only in live mode)

@@ -3,6 +3,9 @@ import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import { 
   getUsers,
   saveUser,
@@ -13,14 +16,148 @@ import {
   setCurrentSession,
   getDistanceKm, 
   hashPassword,
+  comparePassword,
+  compareSecurityAnswer,
   getCredential,
-  saveCredential
+  saveCredential,
+  saveOTP,
+  getOTP,
+  getOTPByToken,
+  addSimulatedNotification,
+  getSimulatedNotifications,
+  clearSimulatedNotifications
 } from './db';
 import { ai } from './gemini';
 import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus, Broadcast } from '../src/types';
 import { processWhatsAppMessage, buildTwiMLResponse } from './whatsapp';
 import { evaluateSensorThreshold, generateSimulatedSensorEvent, SensorPayload } from './iot';
 import { recordResolutionOnLedger, getAllLedgerRecords, verifyLedgerIntegrity } from './blockchain';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'civic_hero_secure_jwt_secret_dev_key_123';
+
+export async function getCurrentUserSession(req: any): Promise<User | null> {
+  try {
+    const token = req?.cookies?.civic_hero_session_token;
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      if (decoded && decoded.id) {
+        const users = await getUsers();
+        const user = users.find(u => u.id === decoded.id);
+        if (user) {
+          return user;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Cookie session JWT verification failed:', err instanceof Error ? err.message : err);
+  }
+  // Fallback to Firestore session/local file database session
+  return await getCurrentSession();
+}
+
+function setSessionCookie(res: Response, user: User) {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role
+  };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  
+  res.cookie('civic_hero_session_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+  });
+}
+
+function clearSessionCookie(res: Response) {
+  res.clearCookie('civic_hero_session_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict'
+  });
+}
+
+// Enterprise-Grade Transactional Email Dispatcher (Brevo SMTP Relay via Nodemailer OR HTTP API)
+async function sendEmailViaBrevo(toEmail: string, subject: string, textBody: string, htmlBody?: string): Promise<boolean> {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.BREVO_API_KEY;
+  const apiKey = process.env.BREVO_API_KEY;
+
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'no-reply@civichero.org';
+  const senderName = process.env.BREVO_SENDER_NAME || 'CivicHero Support';
+
+  // Try SMTP Relay via Nodemailer first if SMTP configuration is present
+  if (smtpHost && smtpUser && smtpPass) {
+    try {
+      console.log(`📨 Attempting SMTP Relay dispatch via ${smtpHost}:${smtpPort} to ${toEmail}...`);
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: parseInt(smtpPort || '587', 10),
+        secure: smtpPort === '465', // true for 465, false for other ports
+        auth: {
+          user: smtpUser,
+          pass: smtpPass
+        }
+      });
+
+      const info = await transporter.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to: toEmail,
+        subject: subject,
+        text: textBody,
+        html: htmlBody || textBody.replace(/\n/g, '<br>')
+      });
+
+      console.log(`📨 Real transactional email dispatched successfully via SMTP Relay to ${toEmail}. MessageId: ${info.messageId}`);
+      return true;
+    } catch (smtpErr) {
+      console.error(`❌ SMTP Relay dispatch failed:`, smtpErr);
+      console.log('⚠️ Falling back to HTTP API or simulated sandbox...');
+    }
+  }
+
+  // Fallback / alternative: Brevo Transactional HTTP API
+  if (apiKey) {
+    try {
+      console.log(`📨 Attempting Brevo HTTP API dispatch to ${toEmail}...`);
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: toEmail }],
+          subject: subject,
+          textContent: textBody,
+          htmlContent: htmlBody || textBody.replace(/\n/g, '<br>')
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`❌ Brevo API returned error ${response.status}: ${errText}`);
+        return false;
+      }
+
+      const data = await response.json();
+      console.log(`📨 Real transactional email dispatched successfully via Brevo HTTP API to ${toEmail}:`, data);
+      return true;
+    } catch (err) {
+      console.error(`❌ Unexpected error dispatching via Brevo HTTP API to ${toEmail}:`, err);
+      return false;
+    }
+  }
+
+  console.log(`ℹ️ Neither SMTP configuration nor Brevo API Key is configured. Using Simulated Sandbox Inbox.`);
+  return false;
+}
 
 const BROADCASTS_PATH = path.join(process.cwd(), 'server', 'data_broadcasts.json');
 
@@ -56,7 +193,7 @@ export function auditLog(action: string, userId: string, details: any, req: Requ
     userAgent: req.headers['user-agent'],
     details
   };
-  const logPath = path.join(__dirname, 'data_audit.json');
+  const logPath = path.join(process.cwd(), 'server', 'data_audit.json');
   try {
     let logs = [];
     if (fs.existsSync(logPath)) {
@@ -147,7 +284,7 @@ const slaMap: Record<IssueCategory, number> = {
 // 1. Get current active user
 router.get('/users/me', async (req, res) => {
   try {
-    const session = await getCurrentSession();
+    const session = await getCurrentUserSession(req);
     res.json(session);
   } catch (err) {
     console.error('Error fetching current user session:', err);
@@ -157,10 +294,14 @@ router.get('/users/me', async (req, res) => {
 
 // Custom credentials registration endpoint
 router.post('/auth/register', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, securityQuestion, securityAnswer } = req.body;
   
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'All fields (name, email, password) are required.' });
+  }
+
+  if (!securityQuestion || !securityAnswer) {
+    return res.status(400).json({ error: 'Please select a security question and provide an answer to secure your password recovery.' });
   }
 
   const sanitizedEmail = email.toLowerCase().trim();
@@ -183,9 +324,10 @@ router.post('/auth/register', async (req, res) => {
 
     const uid = 'user_custom_' + Math.random().toString(36).substring(2, 15);
     const passwordHash = hashPassword(password);
+    const securityAnswerHash = hashPassword(securityAnswer.toLowerCase().trim());
 
     // Save credential
-    await saveCredential(sanitizedEmail, passwordHash, uid);
+    await saveCredential(sanitizedEmail, passwordHash, uid, securityQuestion, securityAnswerHash);
 
     // Create user profile
     const isTargetAdmin = sanitizedEmail === 'shibchandan11@gmail.com';
@@ -206,6 +348,7 @@ router.post('/auth/register', async (req, res) => {
 
     await saveUser(user);
     await setCurrentSession(user);
+    setSessionCookie(res, user);
 
     res.json({ message: 'User registered successfully', user });
   } catch (err) {
@@ -234,13 +377,13 @@ router.post('/auth/login', async (req, res) => {
         const passwordHash = hashPassword(password);
         await saveCredential(sanitizedEmail, passwordHash, defaultUser.id);
         await setCurrentSession(defaultUser);
+        setSessionCookie(res, defaultUser);
         return res.json({ message: 'Logged in successfully', user: defaultUser });
       }
       return res.status(400).json({ error: 'No account found with this email.' });
     }
 
-    const incomingHash = hashPassword(password);
-    if (incomingHash !== cred.passwordHash) {
+    if (!comparePassword(password, cred.passwordHash)) {
       return res.status(400).json({ error: 'Incorrect password. Please try again.' });
     }
 
@@ -252,10 +395,342 @@ router.post('/auth/login', async (req, res) => {
     }
 
     await setCurrentSession(user);
+    setSessionCookie(res, user);
     res.json({ message: 'Logged in successfully', user });
   } catch (err) {
     console.error('Error logging in user:', err);
     res.status(500).json({ error: 'Login failed due to server error.' });
+  }
+});
+
+// Custom credentials password reset - Fetch security question
+router.post('/auth/forgot-password-question', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  try {
+    const cred = await getCredential(sanitizedEmail);
+    if (!cred) {
+      return res.status(400).json({ error: 'No account found with this email.' });
+    }
+
+    const question = cred.securityQuestion || 'What was your childhood nickname?';
+    res.json({ question });
+  } catch (err) {
+    console.error('Error fetching security question:', err);
+    res.status(500).json({ error: 'Server error retrieving security question.' });
+  }
+});
+
+// Custom credentials password reset - Verify answer and save new password
+router.post('/auth/reset-password', async (req, res) => {
+  const { email, securityAnswer, newPassword } = req.body;
+
+  if (!email || !securityAnswer || !newPassword) {
+    return res.status(400).json({ error: 'All fields (email, answer, new password) are required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password should be at least 6 characters.' });
+  }
+
+  try {
+    const cred = await getCredential(sanitizedEmail);
+    if (!cred) {
+      return res.status(400).json({ error: 'No account found with this email.' });
+    }
+
+    const savedAnswerHash = cred.securityAnswerHash || hashPassword('hero'); // legacy default is 'hero'
+
+    if (!compareSecurityAnswer(securityAnswer, savedAnswerHash)) {
+      return res.status(400).json({ error: 'Incorrect security answer. Please try again.' });
+    }
+
+    const newPasswordHash = hashPassword(newPassword);
+    const resolvedQuestion = cred.securityQuestion || 'What was your childhood nickname?';
+
+    await saveCredential(sanitizedEmail, newPasswordHash, cred.userId, resolvedQuestion, savedAnswerHash);
+
+    // Find the associated user and sign them in automatically
+    const users = await getUsers();
+    const user = users.find(u => u.id === cred.userId);
+
+    if (user) {
+      await setCurrentSession(user);
+      setSessionCookie(res, user);
+      return res.json({ message: 'Password reset successfully! You have been logged in.', user });
+    }
+
+    res.json({ message: 'Password reset successfully! Please log in.' });
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    res.status(500).json({ error: 'Server error resetting password.' });
+  }
+});
+
+// --- OTP / Link Based Password Reset ---
+
+router.post('/auth/send-reset-otp', async (req, res) => {
+  const { email, method } = req.body; // method can be 'otp' or 'link'
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  try {
+    const cred = await getCredential(sanitizedEmail);
+    if (!cred) {
+      return res.status(400).json({ error: 'No registered account found with this email.' });
+    }
+
+    // Generate a 6-digit random code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate a random token
+    const token = crypto.randomBytes(32).toString('hex');
+    // Expire in 15 minutes
+    const expiresAt = Date.now() + 15 * 60 * 1000;
+
+    await saveOTP(sanitizedEmail, code, token, expiresAt);
+
+    // Build a simulated email message
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+    
+    const subject = method === 'link' 
+      ? '🔑 CivicHero Secure Password Reset Link' 
+      : '🔢 CivicHero Password Reset Code';
+    
+    const body = method === 'link'
+      ? `Hello from CivicHero Support!
+
+A request was made to reset your password. Please click the secure link below to proceed with setting up a new password:
+
+🔗 Reset Password: ${resetUrl}
+
+This link is single-use and will expire in 15 minutes. If you did not request this, you can safely ignore this message.`
+      : `Hello from CivicHero Support!
+
+Your 6-digit verification code to reset your password is:
+
+🔢 ${code}
+
+Please enter this code in the security screen to proceed. This code is active for 15 minutes. If you did not request this, you can safely ignore this message.`;
+
+    // Attempt to dispatch a real email via Brevo SMTP API, falling back gracefully to sandbox simulator if not configured
+    const realEmailSent = await sendEmailViaBrevo(sanitizedEmail, subject, body);
+
+    const notification = {
+      id: 'notif_' + Math.random().toString(36).substring(2, 15),
+      email: sanitizedEmail,
+      type: 'email' as const,
+      subject,
+      body,
+      code,
+      link: resetUrl,
+      timestamp: Date.now(),
+      realEmailSent
+    };
+
+    await addSimulatedNotification(notification);
+
+    res.json({
+      message: method === 'link'
+        ? 'A secure password reset link has been dispatched to your email address.'
+        : 'A 6-digit verification code has been dispatched to your email address.',
+      method
+    });
+  } catch (err) {
+    console.error('Error in send-reset-otp:', err);
+    res.status(500).json({ error: 'Failed to dispatch verification request.' });
+  }
+});
+
+router.post('/auth/verify-reset-otp', async (req, res) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email and verification code are required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  try {
+    const otpRecord = await getOTP(sanitizedEmail);
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'No verification code was sent for this email.' });
+    }
+
+    if (otpRecord.code !== code.trim()) {
+      return res.status(400).json({ error: 'Incorrect verification code. Please check and try again.' });
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      return res.status(400).json({ error: 'This verification code has expired (15-minute limit). Please request a new one.' });
+    }
+
+    res.json({ message: 'Code verified successfully! You may now set your new password.' });
+  } catch (err) {
+    console.error('Error verifying reset OTP:', err);
+    res.status(500).json({ error: 'Server error during OTP verification.' });
+  }
+});
+
+router.post('/auth/reset-password-otp', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'Email, code, and new password are required.' });
+  }
+
+  const sanitizedEmail = email.toLowerCase().trim();
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password should be at least 6 characters.' });
+  }
+
+  try {
+    const otpRecord = await getOTP(sanitizedEmail);
+    if (!otpRecord || otpRecord.code !== code.trim()) {
+      return res.status(400).json({ error: 'Invalid or expired reset session. Please request a new OTP.' });
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      return res.status(400).json({ error: 'Your reset session has expired. Please request a new OTP.' });
+    }
+
+    const cred = await getCredential(sanitizedEmail);
+    if (!cred) {
+      return res.status(400).json({ error: 'Account not found.' });
+    }
+
+    const newPasswordHash = hashPassword(newPassword);
+    // Retain existing security configuration if present
+    await saveCredential(
+      sanitizedEmail,
+      newPasswordHash,
+      cred.userId,
+      cred.securityQuestion || undefined,
+      cred.securityAnswerHash || undefined
+    );
+
+    // Delete used OTP
+    await saveOTP(sanitizedEmail, '', '', 0);
+
+    // Find and log in user
+    const users = await getUsers();
+    const user = users.find(u => u.id === cred.userId);
+
+    if (user) {
+      await setCurrentSession(user);
+      setSessionCookie(res, user);
+      return res.json({ message: 'Password updated successfully! Welcome back.', user });
+    }
+
+    res.json({ message: 'Password updated successfully! Please proceed to login.' });
+  } catch (err) {
+    console.error('Error resetting password with OTP:', err);
+    res.status(500).json({ error: 'Server error setting new password.' });
+  }
+});
+
+router.post('/auth/verify-reset-token', async (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ error: 'Reset token is required.' });
+  }
+
+  try {
+    const otpRecord = await getOTPByToken(token);
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'This secure password reset link is invalid or has already been used.' });
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      return res.status(400).json({ error: 'This secure password reset link has expired (15-minute limit). Please request a new one.' });
+    }
+
+    res.json({ email: otpRecord.email });
+  } catch (err) {
+    console.error('Error verifying reset token:', err);
+    res.status(500).json({ error: 'Server error verifying secure reset link.' });
+  }
+});
+
+router.post('/auth/reset-password-token', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token and new password are required.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password should be at least 6 characters.' });
+  }
+
+  try {
+    const otpRecord = await getOTPByToken(token);
+    if (!otpRecord) {
+      return res.status(400).json({ error: 'Invalid or expired secure reset link.' });
+    }
+
+    if (Date.now() > otpRecord.expiresAt) {
+      return res.status(400).json({ error: 'This secure reset link has expired. Please request a new one.' });
+    }
+
+    const cred = await getCredential(otpRecord.email);
+    if (!cred) {
+      return res.status(400).json({ error: 'Associated user account was not found.' });
+    }
+
+    const newPasswordHash = hashPassword(newPassword);
+    await saveCredential(
+      otpRecord.email,
+      newPasswordHash,
+      cred.userId,
+      cred.securityQuestion || undefined,
+      cred.securityAnswerHash || undefined
+    );
+
+    // Invalidate token
+    await saveOTP(otpRecord.email, '', '', 0);
+
+    // Log in user
+    const users = await getUsers();
+    const user = users.find(u => u.id === cred.userId);
+
+    if (user) {
+      await setCurrentSession(user);
+      setSessionCookie(res, user);
+      return res.json({ message: 'Password updated successfully! Welcome back.', user });
+    }
+
+    res.json({ message: 'Password updated successfully! Please log in.' });
+  } catch (err) {
+    console.error('Error resetting password with token:', err);
+    res.status(500).json({ error: 'Server error updating password.' });
+  }
+});
+
+router.get('/auth/simulated-notifications', async (req, res) => {
+  try {
+    const list = await getSimulatedNotifications();
+    res.json(list);
+  } catch (err) {
+    console.error('Error getting simulated notifications:', err);
+    res.status(500).json({ error: 'Failed to retrieve notifications.' });
+  }
+});
+
+router.post('/auth/clear-simulated-notifications', async (req, res) => {
+  try {
+    await clearSimulatedNotifications();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error clearing notifications:', err);
+    res.status(500).json({ error: 'Failed to clear notification drawer.' });
   }
 });
 
@@ -321,6 +796,7 @@ router.post('/auth/sync', async (req, res) => {
     }
 
     await setCurrentSession(user);
+    setSessionCookie(res, user);
     res.json({ message: 'User synchronized successfully', user });
   } catch (err) {
     console.error('Error in auth sync:', err);
@@ -332,6 +808,7 @@ router.post('/auth/sync', async (req, res) => {
 router.post('/auth/logout', async (req, res) => {
   try {
     await setCurrentSession(null);
+    clearSessionCookie(res);
     res.json({ message: 'Logged out backend session' });
   } catch (err) {
     console.error('Error in logout:', err);
@@ -342,7 +819,7 @@ router.post('/auth/logout', async (req, res) => {
 // 3. Toggle active user role (Citizen <-> Authority Sandbox Simulator)
 router.post('/users/toggle-role', async (req, res) => {
   try {
-    const currentSession = await getCurrentSession();
+    const currentSession = await getCurrentUserSession(req);
     if (!currentSession) {
       return res.status(401).json({ error: 'You must be signed in to toggle roles.' });
     }
@@ -357,6 +834,7 @@ router.post('/users/toggle-role', async (req, res) => {
       userRecord.role = userRecord.role === 'citizen' ? 'authority' : 'citizen';
       await saveUser(userRecord);
       await setCurrentSession(userRecord);
+      setSessionCookie(res, userRecord);
       auditLog('ROLE_TOGGLED', userRecord.id, { from: oldRole, to: userRecord.role }, req);
     } else {
       // Fallback if the user is in session but not registered in database.users yet
@@ -458,7 +936,7 @@ router.post('/issues', actionLimiter, async (req, res) => {
   let finalSeverity: SeverityLevel = allowedSeverities.includes(severity) ? severity : 'medium';
 
   try {
-    const currentSession = await getCurrentSession();
+    const currentSession = await getCurrentUserSession(req);
     if (!currentSession) {
       return res.status(401).json({ error: 'Must be signed in to report an issue.' });
     }
@@ -676,7 +1154,7 @@ router.post('/issues/:id/vote', async (req, res) => {
   const { voteType } = req.body;
   
   try {
-    const currentSession = await getCurrentSession();
+    const currentSession = await getCurrentUserSession(req);
     if (!currentSession) {
       return res.status(401).json({ error: 'Must be logged in to validate issues.' });
     }
@@ -773,7 +1251,7 @@ router.post('/issues/:id/comment', async (req, res) => {
   }
 
   try {
-    const currentSession = await getCurrentSession();
+    const currentSession = await getCurrentUserSession(req);
     if (!currentSession) {
       return res.status(401).json({ error: 'Must be logged in to comment.' });
     }
@@ -800,6 +1278,7 @@ router.post('/issues/:id/comment', async (req, res) => {
       user.points += 2;
       await saveUser(user);
       await setCurrentSession(user);
+      setSessionCookie(res, user);
     }
 
     await saveIssue(issue);
@@ -831,7 +1310,7 @@ router.post('/issues/:id/status', async (req, res) => {
   }
 
   try {
-    const currentSession = await getCurrentSession();
+    const currentSession = await getCurrentUserSession(req);
     if (!currentSession || currentSession.role !== 'authority') {
       return res.status(403).json({ error: 'Permission denied. Only municipal authorities can update workflow status.' });
     }
@@ -1110,7 +1589,10 @@ router.post('/broadcasts', async (req, res) => {
   if (!allowedSeverities.includes(severity)) {
     return res.status(400).json({ error: 'Invalid severity. Must be info, warning, or critical.' });
   }
-  const session = await getCurrentSession();
+  const session = await getCurrentUserSession(req);
+  if (!session || session.role !== 'authority') {
+    return res.status(403).json({ error: 'Permission denied. Only municipal authorities can post emergency broadcasts.' });
+  }
   const expiresAt = new Date(Date.now() + (Number(durationMinutes) || 60) * 60 * 1000).toISOString();
   const broadcast: Broadcast = {
     id: 'broadcast_' + Date.now(),

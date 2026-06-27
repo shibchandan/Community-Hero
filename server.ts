@@ -12,31 +12,20 @@ import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import hpp from 'hpp';
 import mongoSanitize from 'express-mongo-sanitize';
+import cookieParser from 'cookie-parser';
 import { router as apiRouter } from './server/routes';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // Enable 'trust proxy' so Express and express-rate-limit correctly recognize real client IPs behind Cloud Run proxies
 app.set('trust proxy', 1);
 
-// Set up security headers using Helmet
+// Set up security headers using Helmet (disabling restrictive CSP which causes failed fetches in sandbox iframes)
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://*.googleapis.com"], // Allowed for Vite dev/inline scripts
-      styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com", "https://fonts.googleapis.com"],
-      imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://*.openstreetmap.org", "https://*.tile.openstreetmap.org", "https://nominatim.openstreetmap.org", "https://*.basemaps.cartocdn.com", "https://basemaps.cartocdn.com", "https://server.arcgisonline.com", "https://*.arcgisonline.com"],
-      connectSrc: ["'self'", "https://nominatim.openstreetmap.org", "https://*.googleapis.com", "https://*.firebaseapp.com", "https://*.firebase.com", "ws:", "wss:"], // WebSockets for dev and external APIs
-      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-      objectSrc: ["'none'"],
-      frameAncestors: ["'self'", "https://*.google.com", "https://ai.studio", "https://*.run.app"], // Allow AI Studio iframe
-      upgradeInsecureRequests: [],
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
   frameguard: false // Turn off X-Frame-Options: SAMEORIGIN so it can be loaded in the AI Studio iframe
 }));
@@ -53,24 +42,20 @@ const apiLimiter = rateLimit({
 // Strict rate limiter for authentication routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Max 100 login/register requests per IP per window (Sandbox friendly)
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // Max 10 attempts in prod, 100 in dev
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many authentication attempts from this IP, please try again after 15 minutes.' }
+  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' }
 });
 
-// Configure CORS
+// Configure CORS (allowing all origins with credentials for sandbox environment)
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow same-origin (origin is undefined) or localhost/run.app/google.com/ai.studio subdomains
-    if (!origin || /localhost|127\.0\.0\.1|google\.com|ai\.studio|run\.app/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
+  origin: true,
   credentials: true
 }));
+
+// Set up cookie parsing
+app.use(cookieParser());
 
 // Set up JSON & URL-encoded body parsing with file limits
 app.use(express.json({ limit: '10mb' }));
