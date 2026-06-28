@@ -367,18 +367,34 @@ router.post('/auth/register', async (req, res) => {
   try {
     // Check if credential already exists
     const existingCred = await getCredential(sanitizedEmail);
+    let uid = 'user_custom_' + Math.random().toString(36).substring(2, 15);
+    let isOverwritingSeeded = false;
+
     if (existingCred) {
-      return res.status(400).json({ error: 'This email is already registered. Please log in instead.' });
+      // Check if it's a default pre-seeded credential with the default password "123456"
+      const isSeededDefault = comparePassword('123456', existingCred.passwordHash) && 
+        (existingCred.userId === 'user_admin_shibchandan' || 
+         existingCred.userId === 'user_aarav' || 
+         existingCred.userId === 'user_priya' || 
+         existingCred.userId === 'user_rahul');
+
+      if (!isSeededDefault) {
+        return res.status(400).json({ error: 'This email is already registered. Please log in instead.' });
+      }
+
+      // Overwrite the default seeded credentials with user's customized password and answer
+      uid = existingCred.userId;
+      isOverwritingSeeded = true;
+      console.log(`[AUTH] Overwriting default seeded credential for "${sanitizedEmail}" with custom registration.`);
     }
 
-    const uid = 'user_custom_' + Math.random().toString(36).substring(2, 15);
     const passwordHash = hashPassword(password);
     const securityAnswerHash = hashPassword(securityAnswer.toLowerCase().trim());
 
     // Save credential
     await saveCredential(sanitizedEmail, passwordHash, uid, securityQuestion, securityAnswerHash);
 
-    // Create user profile
+    // Create or update user profile
     const isTargetAdmin = sanitizedEmail === 'shibchandan11@gmail.com';
     const sanitizedRole = isTargetAdmin ? 'authority' : 'citizen';
 
@@ -877,6 +893,51 @@ router.post('/auth/logout', async (req, res) => {
     res.status(500).json({ error: 'Failed to clear session.' });
   }
 });
+
+// Change Password endpoint for logged in users
+router.post('/auth/change-password', async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Both current password and new password are required.' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password should be at least 6 characters.' });
+  }
+
+  try {
+    const session = await getCurrentUserSession(req);
+    if (!session) {
+      return res.status(401).json({ error: 'Unauthorized: No active session.' });
+    }
+
+    const cred = await getCredential(session.email);
+    if (!cred) {
+      return res.status(404).json({ error: 'Credential record not found.' });
+    }
+
+    if (!comparePassword(currentPassword, cred.passwordHash)) {
+      return res.status(400).json({ error: 'Incorrect current password. Please try again.' });
+    }
+
+    const newPasswordHash = hashPassword(newPassword);
+    await saveCredential(
+      session.email,
+      newPasswordHash,
+      cred.userId,
+      cred.securityQuestion || undefined,
+      cred.securityAnswerHash || undefined
+    );
+
+    auditLog('PASSWORD_CHANGED', session.id, { email: session.email }, req);
+    res.json({ message: 'Password updated successfully!' });
+  } catch (err) {
+    console.error('Error changing password:', err);
+    res.status(500).json({ error: 'Server error changing password.' });
+  }
+});
+
 
 // 3. Toggle active user role (Citizen <-> Authority Sandbox Simulator)
 router.post('/users/toggle-role', async (req, res) => {

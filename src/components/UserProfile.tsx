@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Issue, User } from '../types';
 import {
@@ -88,6 +88,53 @@ function StatCard({ icon: Icon, label, value, color, theme }: {
 
 export default function UserProfile({ currentUser, issues, theme, onViewIssue }: UserProfileProps) {
   const [reportTab, setReportTab] = useState<'all' | 'active' | 'resolved'>('all');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isPending, setIsPending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (newPassword.length < 6) {
+      setErrorMsg('New password should be at least 6 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg('Passwords do not match.');
+      return;
+    }
+
+    setIsPending(true);
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Failed to update password.');
+      } else {
+        setSuccessMsg('✅ Password updated successfully!');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (err) {
+      setErrorMsg('Network error. Failed to connect to server.');
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   const rank = getRankName(currentUser.points);
   const rankProgress = getNextRankPoints(currentUser.points);
@@ -411,6 +458,100 @@ export default function UserProfile({ currentUser, issues, theme, onViewIssue }:
           </div>
         </motion.div>
       </div>
+
+      {/* ── Account Security Section ─────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, duration: 0.3 }}
+        className={`p-6 rounded-2xl border ${
+          theme === 'dark' ? 'bento-card' : 'bg-white border-slate-200 shadow-sm'
+        }`}
+      >
+        <h3 className={`text-sm font-bold flex items-center gap-2 mb-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+          <Shield className="w-4 h-4 text-emerald-400" /> Account Security & Password
+        </h3>
+        <p className={`text-xs mb-4 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+          Ensure your civic profile remains protected by updating your credentials regularly.
+        </p>
+
+        <form onSubmit={handlePasswordChange} className="max-w-md space-y-4">
+          {errorMsg && (
+            <div className="p-3 text-xs font-bold rounded-xl border bg-rose-500/10 text-rose-400 border-rose-500/20">
+              {errorMsg}
+            </div>
+          )}
+          {successMsg && (
+            <div className="p-3 text-xs font-bold rounded-xl border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+              {successMsg}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Current Password
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              className={`w-full text-xs font-mono px-3 py-2.5 rounded-xl border outline-none transition-all ${
+                theme === 'dark'
+                  ? 'bg-slate-950/60 border-white/10 text-white focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/35'
+                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500 focus:bg-white'
+              }`}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                New Password
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="At least 6 chars"
+                className={`w-full text-xs font-mono px-3 py-2.5 rounded-xl border outline-none transition-all ${
+                  theme === 'dark'
+                    ? 'bg-slate-950/60 border-white/10 text-white focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/35'
+                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500 focus:bg-white'
+                }`}
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat new password"
+                className={`w-full text-xs font-mono px-3 py-2.5 rounded-xl border outline-none transition-all ${
+                  theme === 'dark'
+                    ? 'bg-slate-950/60 border-white/10 text-white focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/35'
+                    : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500 focus:bg-white'
+                }`}
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isPending}
+            className={`cursor-pointer text-xs font-bold px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50`}
+          >
+            {isPending ? 'Updating...' : 'Update Password'}
+          </button>
+        </form>
+      </motion.div>
 
     </div>
   );
