@@ -31,20 +31,12 @@ app.use(helmet({
 }));
 
 // Apply basic rate limiting to API routes
-const getClientIp = (req: any): string => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.ip || 'unknown';
-};
-
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10000, // High limit for sandbox stability
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  validate: { default: false },
   message: { error: 'Too many requests from this IP, please try again after 15 minutes.' }
 });
 
@@ -54,7 +46,7 @@ const authLimiter = rateLimit({
   max: 500, // Significantly raised for sandbox environments to avoid shared proxy IP blocks
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  validate: { default: false },
   message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' }
 });
 

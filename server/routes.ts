@@ -221,13 +221,7 @@ const actionLimiter = rateLimit({
   max: 30, // Max 30 actions per minute per client IP (more generous for testing)
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
-    }
-    return req.ip || 'unknown';
-  },
+  validate: { default: false },
   message: { error: 'Too many actions from this IP, please wait a minute.' }
 });
 
