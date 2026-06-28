@@ -1,4 +1,4 @@
-import { useState, FormEvent, ReactNode, useEffect } from 'react';
+import { useState, FormEvent, ReactNode, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Sparkles, Mail, Lock, User, AlertTriangle, 
@@ -26,7 +26,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ReactNode | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<ReactNode | null>(null);
 
   // New recovery states
   const [securityQuestion, setSecurityQuestion] = useState('What was your childhood nickname?');
@@ -36,10 +36,54 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   const [fetchedQuestion, setFetchedQuestion] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [recoveryMethod, setRecoveryMethod] = useState<'question' | 'otp' | 'link'>('otp');
   const [resetToken, setResetToken] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [realEmailAvailable, setRealEmailAvailable] = useState<boolean | null>(null);
+  const [simulatedEmails, setSimulatedEmails] = useState<any[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [lastEmailCount, setLastEmailCount] = useState(0);
+  const isSubmittingRef = useRef(false);
+
+  const fetchSimulatedEmails = () => {
+    fetch('/api/auth/simulated-emails')
+      .then(res => {
+        if (!res.ok) throw new Error('API error');
+        return res.json();
+      })
+      .then(data => {
+        setSimulatedEmails(data);
+        if (data.length > lastEmailCount) {
+          setLastEmailCount(data.length);
+          setDrawerOpen(true);
+        }
+      })
+      .catch(err => {
+        console.warn('Silent fallback: simulated emails not loaded.', err);
+      });
+  };
+
+  useEffect(() => {
+    fetchSimulatedEmails();
+    const interval = setInterval(fetchSimulatedEmails, 3000);
+    return () => clearInterval(interval);
+  }, [lastEmailCount]);
+
+  // Fetch email service availability
+  useEffect(() => {
+    fetch('/api/auth/email-config-status')
+      .then(res => res.json())
+      .then(data => {
+        setRealEmailAvailable(data.realEmailAvailable);
+      })
+      .catch(err => {
+        console.error('Failed to fetch email config status:', err);
+        setRealEmailAvailable(false);
+      });
+  }, []);
 
   // Extract reset token from URL on mount
   useEffect(() => {
@@ -91,43 +135,18 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
   const handleInitialSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
     if (!isLogin && !displayName.trim()) {
       setError('Please enter your full name to register.');
       return;
     }
     
+    isSubmittingRef.current = true;
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      if (!isLocalMode) {
-        if (isLogin) {
-          // Standard Firebase Email/Password Sign-In
-          await signInWithEmailAndPassword(auth, email.trim(), password);
-        } else {
-          // Standard Firebase Email/Password Sign-Up
-          const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-          if (userCredential.user) {
-            await updateProfile(userCredential.user, { displayName: displayName.trim() });
-            
-            // Sync with backend database immediately to ensure displayName and profile is created
-            await fetch('/api/auth/sync', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                uid: userCredential.user.uid,
-                email: userCredential.user.email,
-                name: displayName.trim(),
-                role: 'citizen'
-              })
-            });
-          }
-        }
-        onAuthSuccess();
-        return;
-      }
-
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
       const body = isLogin
         ? { email: email.trim(), password }
@@ -159,55 +178,31 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
       onAuthSuccess();
     } catch (err: any) {
       console.error('Auth Error:', err);
-      if (!isLocalMode && err.code) {
-        let msg = err.message || 'An authentication error occurred.';
-        if (err.code === 'auth/email-already-in-use') {
-          msg = 'This email is already registered. Please log in instead.';
-        } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-          msg = 'Incorrect email or password. Please verify your credentials.';
-        } else if (err.code === 'auth/weak-password') {
-          msg = 'The password is too weak. Please use at least 6 characters.';
-        } else if (err.code === 'auth/invalid-email') {
-          msg = 'Please enter a valid email address.';
-        }
-        setError(msg);
-      } else {
-        setError('🌐 Network error — could not reach the authentication server. Make sure the dev server is running.');
-      }
+      setError('🌐 Network error — could not reach the authentication server. Make sure the dev server is running.');
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleResetSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      if (!isLocalMode) {
-        if (recoveryMethod !== 'link') {
-          setError(
-            <div className="space-y-1.5 text-left p-3 bg-indigo-950/20 border border-indigo-500/30 rounded-lg text-xs">
-              <p className="font-bold text-indigo-400">🔒 Live Password Reset Security</p>
-              <p className="text-gray-300 leading-relaxed text-[11px]">In live Firebase mode, local OTP and security questions are disabled for your account protection.</p>
-              <p className="text-gray-400 text-[11px]">👉 Please select <span className="text-white font-semibold">"Magic Link"</span> tab above to receive a real, secure password reset email in your inbox from Google Firebase.</p>
-            </div>
-          );
+      if (resetStep === 2) {
+        if (newPassword.length < 6) {
+          setError('New password should be at least 6 characters.');
           return;
         }
-        if (resetStep === 1) {
-          if (!email.trim()) {
-            setError('Please enter your registered email address.');
-            return;
-          }
-          await sendPasswordResetEmail(auth, email.trim());
-          setSuccessMessage('✉️ A real, secure password reset link has been successfully dispatched to your email by Google Firebase! Please check your inbox and spam folder.');
-        } else {
-          setError('Please click the secure reset link sent to your email to choose a new password.');
+        if (newPassword !== confirmPassword) {
+          setError('Passwords do not match. Please verify both fields.');
+          return;
         }
-        return;
       }
 
       if (recoveryMethod === 'question') {
@@ -252,11 +247,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
             return;
           }
 
-          setSuccessMessage('Password reset successfully!');
-          if (data.user) {
-            localStorage.setItem('civic_hero_session', JSON.stringify(data.user));
-          }
-          onAuthSuccess();
+          setSuccessMessage('Password reset successfully! Please log in with your new password.');
+          setIsResetMode(false);
+          setIsLogin(true);
+          setNewPassword('');
+          setConfirmPassword('');
+          setSecurityAnswer('');
         }
       } else if (recoveryMethod === 'otp') {
         if (resetStep === 1) {
@@ -300,11 +296,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
             return;
           }
 
-          setSuccessMessage('Password updated successfully!');
-          if (data.user) {
-            localStorage.setItem('civic_hero_session', JSON.stringify(data.user));
-          }
-          onAuthSuccess();
+          setSuccessMessage('Password updated successfully! Please log in with your new password.');
+          setIsResetMode(false);
+          setIsLogin(true);
+          setNewPassword('');
+          setConfirmPassword('');
+          setOtpCode('');
         }
       } else if (recoveryMethod === 'link') {
         if (resetStep === 1) {
@@ -345,11 +342,15 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
             return;
           }
 
-          setSuccessMessage('Password updated successfully!');
-          if (data.user) {
-            localStorage.setItem('civic_hero_session', JSON.stringify(data.user));
-          }
-          onAuthSuccess();
+          setSuccessMessage('Password updated successfully! Please log in with your new password.');
+          // Remove query param from url so it doesn't trigger the reset token modal on page refresh
+          const url = new URL(window.location.href);
+          url.searchParams.delete('token');
+          window.history.replaceState({}, '', url.toString());
+          setIsResetMode(false);
+          setIsLogin(true);
+          setNewPassword('');
+          setConfirmPassword('');
         }
       }
     } catch (err: any) {
@@ -367,6 +368,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
       }
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -617,6 +619,38 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                     </button>
                   </div>
                 </div>
+
+                {/* Confirm Password input */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                      <Lock className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      placeholder="Confirm your new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full text-sm pl-10 pr-10 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </>
             )}
 
@@ -801,197 +835,97 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         </div>
       </motion.div>
 
-      {/* Developer Sandbox Drawer - Only rendered in development/sandbox mode, never in production for security */}
-      {!(import.meta as any).env?.PROD && (
-        <DeveloperInbox 
-          onUseResetToken={(tokenParam) => {
-            setLoading(true);
-            setError(null);
-            setSuccessMessage(null);
-            
-            fetch('/api/auth/verify-reset-token', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ token: tokenParam }),
-            })
-              .then(async (res) => {
-                const data = await res.json();
-                if (!res.ok) {
-                  setError(data.error || 'The secure reset token is invalid.');
-                  return;
-                }
-                
-                setEmail(data.email);
-                setIsResetMode(true);
-                setRecoveryMethod('link');
-                setResetStep(2);
-                setResetToken(tokenParam);
-                setSuccessMessage('🔗 Magic Reset link injected successfully! Enter your new password below.');
-              })
-              .catch(err => {
-                console.error(err);
-                setError('🌐 Failed to verify secure reset link.');
-              })
-              .finally(() => {
-                setLoading(false);
-              });
-          }}
-        />
-      )}
-    </div>
-  );
-}
+      {/* Developer Sandbox Drawer */}
+      {!inline && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0f172a]/95 border-t border-indigo-500/30 shadow-[0_-8px_30px_rgb(0,0,0,0.5)] backdrop-blur-md transition-all duration-300">
+          <div className="max-w-md mx-auto">
+            {/* Header */}
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(!drawerOpen)}
+              className="w-full px-6 py-3 flex items-center justify-between text-left text-white hover:bg-white/5 cursor-pointer select-none"
+            >
+              <div className="flex items-center gap-2">
+                <Inbox className="w-4 h-4 text-indigo-400 animate-pulse" />
+                <span className="text-xs font-bold tracking-wider uppercase">
+                  📨 Developer Outbox Sandbox
+                </span>
+                {simulatedEmails.length > 0 && (
+                  <span className="bg-indigo-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                    {simulatedEmails.length}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-indigo-400 font-semibold hover:underline">
+                {drawerOpen ? 'Hide Panel' : 'Show Outgoing Mail'}
+              </span>
+            </button>
 
-// --- Developer Sandbox Inbox Drawer Component ---
-function DeveloperInbox({ onUseResetToken }: { onUseResetToken: (token: string) => void }) {
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [isOpen, setIsOpen] = useState(true);
-  const [loading, setLoading] = useState(false);
+            {/* Collapsible Content */}
+            {drawerOpen && (
+              <div className="px-6 pb-6 max-h-[300px] overflow-y-auto space-y-4 border-t border-white/5 pt-4 custom-scrollbar">
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Real-time transactional log of outgoing password reset links, OTP verification codes, and security messages.
+                </p>
 
-  const fetchNotifications = async () => {
-    try {
-      const res = await fetch('/api/auth/simulated-notifications');
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
-    } catch (err) {
-      console.error('Error fetching simulated notifications:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-    const timer = setInterval(fetchNotifications, 3000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const handleClear = async () => {
-    setLoading(true);
-    try {
-      await fetch('/api/auth/clear-simulated-notifications', { method: 'POST' });
-      setNotifications([]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="w-full max-w-md mt-6 rounded-2xl border border-indigo-500/20 bg-slate-900/90 text-white shadow-xl overflow-hidden backdrop-blur-md z-20">
-      {/* Header */}
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
-        className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-950 to-slate-900 border-b border-indigo-500/20 cursor-pointer hover:bg-slate-800/80 transition-all select-none"
-      >
-        <div className="flex items-center gap-2">
-          <Inbox className="w-4 h-4 text-indigo-400 animate-pulse" />
-          <span className="text-xs font-bold font-mono tracking-tight text-indigo-300">
-            📨 Developer Sandbox Inbox
-          </span>
-          {notifications.length > 0 && (
-            <span className="bg-indigo-500 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full text-white">
-              {notifications.length}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button 
-            type="button" 
-            onClick={(e) => { e.stopPropagation(); fetchNotifications(); }} 
-            className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-all cursor-pointer"
-            title="Refresh Inbox"
-          >
-            <RefreshCw className="w-3 h-3" />
-          </button>
-          <button 
-            type="button" 
-            onClick={(e) => { e.stopPropagation(); handleClear(); }} 
-            disabled={loading || notifications.length === 0}
-            className="p-1 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400 transition-all cursor-pointer disabled:opacity-40"
-            title="Clear Inbox"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-          <span className="text-[10px] font-bold text-gray-500">
-            {isOpen ? 'Collapse ▲' : 'Expand ▼'}
-          </span>
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="p-3 max-h-[220px] overflow-y-auto space-y-2 font-mono text-[11px] bg-slate-950/60 custom-scrollbar">
-          {notifications.length === 0 ? (
-            <div className="text-center py-6 text-gray-500 italic space-y-1">
-              <p>📬 Inbox is empty</p>
-              <p className="text-[9px] text-gray-600">Trigger a password reset to see OTP codes & login links here instantly!</p>
-            </div>
-          ) : (
-            notifications.map((n) => {
-              const isExpanded = expandedId === n.id;
-              const formattedTime = new Date(n.timestamp).toLocaleTimeString();
-              return (
-                <div 
-                  key={n.id} 
-                  className={`p-2.5 rounded-xl border transition-all ${
-                    isExpanded 
-                      ? 'bg-indigo-950/50 border-indigo-500/30 shadow-inner' 
-                      : 'bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div 
-                    onClick={() => setExpandedId(isExpanded ? null : n.id)}
-                    className="flex justify-between items-start cursor-pointer gap-2"
-                  >
-                    <div className="space-y-0.5 min-w-0">
-                      <p className="font-bold text-indigo-300 truncate">To: {n.email}</p>
-                      <p className="text-[10px] text-gray-400 font-medium truncate">{n.subject}</p>
-                    </div>
-                    <span className="text-[9px] text-gray-600 shrink-0 font-sans">{formattedTime}</span>
+                {simulatedEmails.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-900/50 border border-white/5 text-center text-xs text-gray-500">
+                    No simulated emails captured yet in this session.
                   </div>
-
-                  {isExpanded && (
-                    <div className="mt-2.5 pt-2.5 border-t border-indigo-500/20 space-y-2 text-gray-300 whitespace-pre-wrap leading-relaxed select-text">
-                      <p className="bg-slate-950 p-2 rounded-lg border border-white/5 font-mono select-all text-gray-300 font-medium text-[10px]">
-                        {n.body}
-                      </p>
-                      
-                      {n.code && (
-                        <div className="flex items-center gap-2 bg-indigo-500/10 p-2 rounded-lg border border-indigo-500/20">
-                          <span className="text-[10px] font-bold text-indigo-300">OTP Code:</span>
-                          <span className="bg-indigo-600 px-2 py-0.5 rounded text-white font-bold select-all tracking-wider text-[11px]">
-                            {n.code}
-                          </span>
+                ) : (
+                  <div className="space-y-3">
+                    {simulatedEmails.map((item: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-xl bg-slate-950 border border-indigo-500/20 shadow-md relative overflow-hidden text-left"
+                      >
+                        <div className="absolute top-0 right-0 bg-indigo-500/10 text-indigo-400 text-[9px] font-bold px-2 py-0.5 rounded-bl-lg">
+                          {new Date(item.timestamp).toLocaleTimeString()}
                         </div>
-                      )}
-
-                      {n.link && (
-                        <div className="flex flex-col gap-1.5 bg-slate-900 p-2 rounded-lg border border-white/10">
-                          <span className="text-[10px] font-bold text-indigo-300">Magic Link Action:</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = new URL(n.link);
-                              const token = url.searchParams.get('token');
-                              if (token) onUseResetToken(token);
-                            }}
-                            className="w-full text-center font-bold py-1 px-2 text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            <span>Inject & Reset Instantly</span>
-                          </button>
+                        <div className="text-[11px] text-indigo-300 font-bold mb-1">
+                          Subject: {item.subject}
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
+                        <div className="text-[10px] text-gray-400 mb-2 font-mono">
+                          To: {item.email}
+                        </div>
+                        <div className="p-2.5 bg-slate-900 rounded-lg text-[11px] text-gray-300 font-mono whitespace-pre-wrap leading-relaxed border border-white/5 mb-2 select-all">
+                          {item.body}
+                        </div>
+                        <div className="flex gap-2">
+                          {item.code && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOtpCode(item.code);
+                                setSuccessMessage(`Copied verification code ${item.code} to input!`);
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-all cursor-pointer"
+                            >
+                              Auto-Fill Code: {item.code}
+                            </button>
+                          )}
+                          {item.link && (
+                            <a
+                              href={item.link}
+                              onClick={(e) => {
+                                window.location.href = item.link;
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-all inline-block"
+                            >
+                              Follow Reset Link
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
     </div>
   );
 }

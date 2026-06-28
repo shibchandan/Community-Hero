@@ -91,53 +91,18 @@ export default function App() {
     try { localStorage.setItem('civic_sidebar_expanded', String(sidebarExpanded)); } catch { }
   }, [sidebarExpanded]);
 
-  // Monitor Firebase Auth changes (if enabled) and sync with Express database
+  // Monitor session and sync with Express database
   useEffect(() => {
-    // On localhost: skip Firebase Auth listener entirely — use custom server auth
-    if (isLocalMode || !auth) {
-      const stored = loadStoredSession();
-      if (stored) {
-        setCurrentUser(stored);
-        setFbLoading(false);
-        syncState(); // silently refresh in background
-      } else {
-        setFbLoading(true);
-        syncState().finally(() => setFbLoading(false));
-      }
-      return;
-    }
-
-    // Live mode: use Firebase Auth listener
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFbLoading(true);
-      if (user) {
-        setFbUser(user);
-        try {
-          const response = await fetch('/api/auth/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: user.uid,
-              email: user.email,
-              name: user.displayName || user.email?.split('@')[0],
-              role: 'citizen'
-            })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setCurrentUser(data.user);
-            await syncState();
-          }
-        } catch (err) {
-          console.error('Failed to sync auth user state with server:', err);
-        }
-      } else {
-        setFbUser(null);
-        setCurrentUser(null);
-      }
+    // Use custom secure backend server auth session for unified flow and Brevo support
+    const stored = loadStoredSession();
+    if (stored) {
+      setCurrentUser(stored);
       setFbLoading(false);
-    });
-    return () => unsubscribe();
+      syncState(); // silently refresh in background
+    } else {
+      setFbLoading(true);
+      syncState().finally(() => setFbLoading(false));
+    }
   }, []);
 
   // Sync state with the backend database
@@ -146,14 +111,14 @@ export default function App() {
       if (showLoading === true) setLoading(true);
       // Fetch Issues
       const resIssues = await fetch('/api/issues');
-      if (resIssues.ok) {
+      if (resIssues.ok && resIssues.headers.get('content-type')?.includes('application/json')) {
         const dataIssues = await resIssues.json();
         setIssues(dataIssues);
       }
 
       // Fetch Current Session User & persist to localStorage
       const resMe = await fetch('/api/users/me');
-      if (resMe.ok) {
+      if (resMe.ok && resMe.headers.get('content-type')?.includes('application/json')) {
         const dataMe = await resMe.json();
         if (dataMe) {
           setCurrentUser(dataMe);
@@ -162,14 +127,14 @@ export default function App() {
           setCurrentUser(null);
           saveSession(null);
         }
-      } else {
+      } else if (resMe.ok || resMe.status === 401 || resMe.status === 403) {
         setCurrentUser(null);
         saveSession(null);
       }
 
       // Fetch User list for Leaderboards
       const resUsers = await fetch('/api/users');
-      if (resUsers.ok) {
+      if (resUsers.ok && resUsers.headers.get('content-type')?.includes('application/json')) {
         const dataUsers = await resUsers.json();
         setUsersList(dataUsers);
       }
@@ -253,7 +218,7 @@ export default function App() {
     const fetchSession = async () => {
       try {
         const resMe = await fetch('/api/users/me');
-        if (resMe.ok) {
+        if (resMe.ok && resMe.headers.get('content-type')?.includes('application/json')) {
           const dataMe = await resMe.json();
           setCurrentUser(dataMe);
         }
@@ -279,6 +244,10 @@ export default function App() {
     if (sharedIssueId) {
       setActiveTab('feed');
       setSelectedIssueId(sharedIssueId);
+    }
+    const tokenParam = params.get('token');
+    if (tokenParam || window.location.pathname.includes('reset-password')) {
+      setShowAuthModal(true);
     }
   }, []);
 

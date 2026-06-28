@@ -17,7 +17,9 @@ console.log("Initializing Firebase with real credentials - v1.0.1");
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (used only in live mode)
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 
 // Initialize Auth and Google OAuth Provider
 export const auth = getAuth(app);

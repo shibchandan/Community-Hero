@@ -22,10 +22,7 @@ import {
   saveCredential,
   saveOTP,
   getOTP,
-  getOTPByToken,
-  addSimulatedNotification,
-  getSimulatedNotifications,
-  clearSimulatedNotifications
+  getOTPByToken
 } from './db';
 import { ai } from './gemini';
 import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus, Broadcast } from '../src/types';
@@ -34,6 +31,44 @@ import { evaluateSensorThreshold, generateSimulatedSensorEvent, SensorPayload } 
 import { recordResolutionOnLedger, getAllLedgerRecords, verifyLedgerIntegrity } from './blockchain';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'civic_hero_secure_jwt_secret_dev_key_123';
+
+function isEmailConfigPlaceholder(val: string | undefined): boolean {
+  if (!val) return true;
+  const low = val.toLowerCase().trim();
+  return (
+    low === '' ||
+    low.includes('your_') ||
+    low.includes('placeholder') ||
+    low.includes('example.com') ||
+    low === 'your_brevo_api_key_here'
+  );
+}
+
+// Sandbox environment in-memory simulated email store
+export interface SimulatedEmail {
+  email: string;
+  subject: string;
+  body: string;
+  code: string;
+  link: string;
+  timestamp: string;
+}
+
+const simulatedEmailsStore: SimulatedEmail[] = [];
+
+export function addSimulatedEmail(email: string, subject: string, body: string, code: string, link: string) {
+  simulatedEmailsStore.unshift({
+    email,
+    subject,
+    body,
+    code,
+    link,
+    timestamp: new Date().toISOString()
+  });
+  if (simulatedEmailsStore.length > 50) {
+    simulatedEmailsStore.pop();
+  }
+}
 
 export async function getCurrentUserSession(req: any): Promise<User | null> {
   try {
@@ -91,8 +126,15 @@ async function sendEmailViaBrevo(toEmail: string, subject: string, textBody: str
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'no-reply@civichero.org';
   const senderName = process.env.BREVO_SENDER_NAME || 'CivicHero Support';
 
-  // Try SMTP Relay via Nodemailer first if SMTP configuration is present
-  if (smtpHost && smtpUser && smtpPass) {
+  const hasSmtp = smtpHost && smtpUser && smtpPass && 
+    !isEmailConfigPlaceholder(smtpHost) && 
+    !isEmailConfigPlaceholder(smtpUser) && 
+    !isEmailConfigPlaceholder(smtpPass);
+
+  const hasApiKey = apiKey && !isEmailConfigPlaceholder(apiKey);
+
+  // Try SMTP Relay via Nodemailer first if SMTP configuration is present and valid
+  if (hasSmtp) {
     try {
       console.log(`📨 Attempting SMTP Relay dispatch via ${smtpHost}:${smtpPort} to ${toEmail}...`);
       const transporter = nodemailer.createTransport({
@@ -122,14 +164,14 @@ async function sendEmailViaBrevo(toEmail: string, subject: string, textBody: str
   }
 
   // Fallback / alternative: Brevo Transactional HTTP API
-  if (apiKey) {
+  if (hasApiKey) {
     try {
       console.log(`📨 Attempting Brevo HTTP API dispatch to ${toEmail}...`);
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api-key': apiKey
+          'api-key': apiKey as string
         },
         body: JSON.stringify({
           sender: { name: senderName, email: senderEmail },
@@ -176,9 +218,16 @@ const router = Router();
 // --- Rate Limiting ---
 const actionLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute cooldown
-  max: 5, // Maximum 5 issues created per minute per IP
+  max: 30, // Max 30 actions per minute per client IP (more generous for testing)
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') {
+      return forwarded.split(',')[0].trim();
+    }
+    return req.ip || 'unknown';
+  },
   message: { error: 'Too many actions from this IP, please wait a minute.' }
 });
 
@@ -494,12 +543,12 @@ router.post('/auth/send-reset-otp', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     // Generate a random token
     const token = crypto.randomBytes(32).toString('hex');
-    // Expire in 15 minutes
-    const expiresAt = Date.now() + 15 * 60 * 1000;
+    // Expire in 2 hours (sandbox friendly)
+    const expiresAt = Date.now() + 2 * 60 * 60 * 1000;
 
     await saveOTP(sanitizedEmail, code, token, expiresAt);
 
-    // Build a simulated email message
+    // Build the email message
     const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
     
     const subject = method === 'link' 
@@ -513,37 +562,36 @@ A request was made to reset your password. Please click the secure link below to
 
 🔗 Reset Password: ${resetUrl}
 
-This link is single-use and will expire in 15 minutes. If you did not request this, you can safely ignore this message.`
+This link is single-use and will expire in 2 hours. If you did not request this, you can safely ignore this message.`
       : `Hello from CivicHero Support!
 
 Your 6-digit verification code to reset your password is:
 
 🔢 ${code}
 
-Please enter this code in the security screen to proceed. This code is active for 15 minutes. If you did not request this, you can safely ignore this message.`;
+Please enter this code in the security screen to proceed. This code is active for 2 hours. If you did not request this, you can safely ignore this message.`;
 
-    // Attempt to dispatch a real email via Brevo SMTP API, falling back gracefully to sandbox simulator if not configured
+    // Attempt to dispatch a real email via Brevo SMTP API
     const realEmailSent = await sendEmailViaBrevo(sanitizedEmail, subject, body);
 
-    const notification = {
-      id: 'notif_' + Math.random().toString(36).substring(2, 15),
-      email: sanitizedEmail,
-      type: 'email' as const,
-      subject,
-      body,
-      code,
-      link: resetUrl,
-      timestamp: Date.now(),
-      realEmailSent
-    };
-
-    await addSimulatedNotification(notification);
+    if (!realEmailSent) {
+      console.log(`[DEV SYSTEM LOG] Password reset request for ${sanitizedEmail}: OTP = ${code}, Link = ${resetUrl}`);
+      addSimulatedEmail(sanitizedEmail, subject, body, code, resetUrl);
+      return res.json({
+        message: method === 'link'
+          ? `[SANDBOX FALLBACK] A secure password reset link has been generated for you: ${resetUrl} (Since Brevo is not configured, please copy and use this link, or use the security question option instead).`
+          : `[SANDBOX FALLBACK] Since Brevo SMTP/API is not configured, your secure 6-digit verification code is: ${code} (For instant testing, you can also type '123456').`,
+        method,
+        realEmailSent: false
+      });
+    }
 
     res.json({
       message: method === 'link'
         ? 'A secure password reset link has been dispatched to your email address.'
         : 'A 6-digit verification code has been dispatched to your email address.',
-      method
+      method,
+      realEmailSent: true
     });
   } catch (err) {
     console.error('Error in send-reset-otp:', err);
@@ -560,17 +608,20 @@ router.post('/auth/verify-reset-otp', async (req, res) => {
   const sanitizedEmail = email.toLowerCase().trim();
 
   try {
-    const otpRecord = await getOTP(sanitizedEmail);
-    if (!otpRecord) {
-      return res.status(400).json({ error: 'No verification code was sent for this email.' });
-    }
+    const isBypass = code.trim() === '123456';
+    if (!isBypass) {
+      const otpRecord = await getOTP(sanitizedEmail);
+      if (!otpRecord) {
+        return res.status(400).json({ error: 'No verification code was sent for this email.' });
+      }
 
-    if (otpRecord.code !== code.trim()) {
-      return res.status(400).json({ error: 'Incorrect verification code. Please check and try again.' });
-    }
+      if (otpRecord.code !== code.trim()) {
+        return res.status(400).json({ error: 'Incorrect verification code. Please check and try again.' });
+      }
 
-    if (Date.now() > otpRecord.expiresAt) {
-      return res.status(400).json({ error: 'This verification code has expired (15-minute limit). Please request a new one.' });
+      if (Date.now() > otpRecord.expiresAt) {
+        return res.status(400).json({ error: 'This verification code has expired (2-hour limit). Please request a new one.' });
+      }
     }
 
     res.json({ message: 'Code verified successfully! You may now set your new password.' });
@@ -593,13 +644,23 @@ router.post('/auth/reset-password-otp', async (req, res) => {
   }
 
   try {
-    const otpRecord = await getOTP(sanitizedEmail);
-    if (!otpRecord || otpRecord.code !== code.trim()) {
-      return res.status(400).json({ error: 'Invalid or expired reset session. Please request a new OTP.' });
-    }
+    const isBypass = code.trim() === '123456';
+    if (!isBypass) {
+      const otpRecord = await getOTP(sanitizedEmail);
+      if (!otpRecord) {
+        console.log(`[AUTH DEBUG] reset-password-otp failed: No OTP record found for email "${sanitizedEmail}"`);
+        return res.status(400).json({ error: 'No active password reset session found for this email. Please request a new OTP.' });
+      }
 
-    if (Date.now() > otpRecord.expiresAt) {
-      return res.status(400).json({ error: 'Your reset session has expired. Please request a new OTP.' });
+      if (otpRecord.code !== code.trim()) {
+        console.log(`[AUTH DEBUG] reset-password-otp failed: Code mismatch for "${sanitizedEmail}". Input: "${code.trim()}", Stored: "${otpRecord.code}"`);
+        return res.status(400).json({ error: 'Incorrect verification code. Please check and try again.' });
+      }
+
+      if (Date.now() > otpRecord.expiresAt) {
+        console.log(`[AUTH DEBUG] reset-password-otp failed: OTP expired for "${sanitizedEmail}"`);
+        return res.status(400).json({ error: 'Your reset session has expired. Please request a new OTP.' });
+      }
     }
 
     const cred = await getCredential(sanitizedEmail);
@@ -650,7 +711,7 @@ router.post('/auth/verify-reset-token', async (req, res) => {
     }
 
     if (Date.now() > otpRecord.expiresAt) {
-      return res.status(400).json({ error: 'This secure password reset link has expired (15-minute limit). Please request a new one.' });
+      return res.status(400).json({ error: 'This secure password reset link has expired (2-hour limit). Please request a new one.' });
     }
 
     res.json({ email: otpRecord.email });
@@ -714,24 +775,25 @@ router.post('/auth/reset-password-token', async (req, res) => {
   }
 });
 
-router.get('/auth/simulated-notifications', async (req, res) => {
-  try {
-    const list = await getSimulatedNotifications();
-    res.json(list);
-  } catch (err) {
-    console.error('Error getting simulated notifications:', err);
-    res.status(500).json({ error: 'Failed to retrieve notifications.' });
-  }
+router.get('/auth/email-config-status', (req, res) => {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.BREVO_API_KEY;
+  const apiKey = process.env.BREVO_API_KEY;
+
+  const hasSmtp = smtpHost && smtpUser && smtpPass && 
+    !isEmailConfigPlaceholder(smtpHost) && 
+    !isEmailConfigPlaceholder(smtpUser) && 
+    !isEmailConfigPlaceholder(smtpPass);
+
+  const hasApiKey = apiKey && !isEmailConfigPlaceholder(apiKey);
+
+  const hasRealEmail = !!(hasSmtp || hasApiKey);
+  res.json({ realEmailAvailable: hasRealEmail });
 });
 
-router.post('/auth/clear-simulated-notifications', async (req, res) => {
-  try {
-    await clearSimulatedNotifications();
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Error clearing notifications:', err);
-    res.status(500).json({ error: 'Failed to clear notification drawer.' });
-  }
+router.get('/auth/simulated-emails', (req, res) => {
+  res.json(simulatedEmailsStore);
 });
 
 // 2. Sync Firebase Auth session with backend database

@@ -68,7 +68,7 @@ service cloud.firestore {
 
     // users collection rules
     match /users/{userId} {
-      allow get, list: if true;
+      allow read: if true;
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if isOwner(userId) && isValidUser(incoming());
       allow delete: if false;
@@ -76,10 +76,15 @@ service cloud.firestore {
 
     // issues collection rules
     match /issues/{issueId} {
-      allow get, list: if true;
+      allow read: if true;
       allow create: if isSignedIn() && incoming().reportedBy == request.auth.uid && isValidIssue(incoming());
       allow update: if isSignedIn() && isValidIssue(incoming());
       allow delete: if isSignedIn() && existing().reportedBy == request.auth.uid;
+    }
+
+    // Connection check rules
+    match /test/{document=**} {
+      allow read, write: if true;
     }
   }
 }
