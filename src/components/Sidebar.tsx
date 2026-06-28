@@ -15,7 +15,7 @@ import { Issue } from '../types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp';
+type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp' | 'docs';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -45,6 +45,7 @@ const NAV_ITEMS = [
   { id: 'analytics'  as TabId, label: 'Admin Analytics',   icon: TrendingUp,     group: 'tools' },
   { id: 'ledger'     as TabId, label: 'Proof Ledger',       icon: Link2,          group: 'advanced' },
   { id: 'whatsapp'   as TabId, label: 'WhatsApp Bot',       icon: MessageCircle,  group: 'advanced' },
+  { id: 'docs'       as TabId, label: 'Google Docs Hub',   icon: FileText,       group: 'advanced' },
 ];
 
 // ── NavButton ─────────────────────────────────────────────────────────────────

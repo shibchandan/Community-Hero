@@ -14,11 +14,12 @@ export const isLocalMode =
 
 // Initialize Firebase App (safe even with mock config)
 console.log("Initializing Firebase with real credentials - v1.0.1");
-const app = initializeApp(firebaseConfig);
+const config = firebaseConfig as any;
+const app = initializeApp(config);
 
 // Initialize Firestore (used only in live mode)
-export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+export const db = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
+  ? getFirestore(app, config.firestoreDatabaseId)
   : getFirestore(app);
 
 // Initialize Auth and Google OAuth Provider

@@ -25,6 +25,7 @@ import { CivicBot } from './components/CivicBot';
 import { EmergencyBroadcastBanner } from './components/EmergencyBroadcastBanner';
 import { BlockchainLedger } from './components/BlockchainLedger';
 import { WhatsAppBotDemo } from './components/WhatsAppBotDemo';
+import GoogleDocsSupport from './components/GoogleDocsSupport';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, RefreshCw, Layers, Loader2, Menu, X
@@ -60,7 +61,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(loadStoredSession);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState<string | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile' | 'ledger' | 'whatsapp' | 'docs'>('map');
   const [theme, setTheme] = useState<'dark' | 'light'>(loadStoredTheme);
   const [loading, setLoading] = useState(true);
   const [fbUser, setFbUser] = useState<any>(null);
@@ -932,6 +933,20 @@ export default function App() {
                   className="w-full"
                 >
                   <WhatsAppBotDemo theme={theme} />
+                </motion.div>
+              )}
+
+              {/* 6.e Google Docs Hub Tab */}
+              {activeTab === 'docs' && (
+                <motion.div
+                  key="docs"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <GoogleDocsSupport theme={theme} issues={displayedIssues} />
                 </motion.div>
               )}
 
