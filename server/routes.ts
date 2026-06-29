@@ -23,13 +23,16 @@ import {
   saveCredential,
   saveOTP,
   getOTP,
-  getOTPByToken
+  getOTPByToken,
+  getContactMessages,
+  saveContactMessage
 } from './db';
 import { ai } from './gemini';
-import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus, Broadcast } from '../src/types';
+import { Issue, User, Comment, TimelineEvent, IssueCategory, SeverityLevel, IssueStatus, Broadcast, ContactMessage } from '../src/types';
 import { processWhatsAppMessage, buildTwiMLResponse } from './whatsapp';
 import { evaluateSensorThreshold, generateSimulatedSensorEvent, SensorPayload } from './iot';
 import { recordResolutionOnLedger, getAllLedgerRecords, verifyLedgerIntegrity } from './blockchain';
+import { validateImageMagicBytes, issueCreationLimiter } from './security';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'civic_hero_secure_jwt_secret_dev_key_123';
 
@@ -302,7 +305,11 @@ function isValidImage(imageStr: string | undefined): boolean {
   ) {
     // 5MB max payload constraint for base64 strings to prevent DB blowup
     const approxBytes = imageStr.length * 0.75;
-    return approxBytes <= 5 * 1024 * 1024;
+    if (approxBytes > 5 * 1024 * 1024) {
+      return false;
+    }
+    // Perform strict deep magic bytes signature and script scanning check
+    return validateImageMagicBytes(imageStr).valid;
   }
   return false;
 }
@@ -1028,18 +1035,30 @@ router.post('/issues/seed-local', async (req, res) => {
       issue => issue.location?.city?.toLowerCase() === cityLower
     );
 
+    // If we already have issues in this city, but we want to make sure resolved and escalated exist,
+    // let's clear out any old default geolocated issues for this city and re-seed all 8!
+    // This handles any cases where the user has an existing empty resolved/escalated state.
     if (existingCityIssues.length > 0) {
-      // If we already have issues in this city, but "New Delhi" is still in the database and we are in a different city,
-      // let's still clean up "New Delhi" to satisfy the overwrite instruction!
-      if (cityLower !== 'new delhi') {
-        const defaultNewDelhiIssues = currentIssues.filter(
-          issue => issue.location?.city?.toLowerCase() === 'new delhi'
-        );
-        for (const issue of defaultNewDelhiIssues) {
+      const localSeededIssuesInThisCity = existingCityIssues.filter(
+        issue => issue.id.startsWith('issue_local_')
+      );
+      // Only delete if we are upgrading a 4-issue seed to the new 8-issue seed
+      if (localSeededIssuesInThisCity.length < 8) {
+        for (const issue of localSeededIssuesInThisCity) {
           await deleteIssue(issue.id);
         }
+      } else {
+        // Already fully seeded
+        if (cityLower !== 'new delhi') {
+          const defaultNewDelhiIssues = currentIssues.filter(
+            issue => issue.location?.city?.toLowerCase() === 'new delhi'
+          );
+          for (const issue of defaultNewDelhiIssues) {
+            await deleteIssue(issue.id);
+          }
+        }
+        return res.json({ message: 'City already has reported issues.', seeded: false });
       }
-      return res.json({ message: 'City already has reported issues.', seeded: false });
     }
 
     // Delete any default "New Delhi" mock issues so we fully overwrite with the real-time geolocated city issues
@@ -1052,7 +1071,7 @@ router.post('/issues/seed-local', async (req, res) => {
       }
     }
 
-    // Seed 4 beautiful, realistic civic issues in the user's specific geolocated city and area
+    // Seed 8 beautiful, realistic civic issues in the user's specific geolocated city and area
     const localIssues: Issue[] = [
       {
         id: `issue_local_1_${Date.now()}`,
@@ -1241,6 +1260,202 @@ router.post('/issues/seed-local', async (req, res) => {
         resolutionNotes: null,
         resolvedAt: null,
         urgencyReason: 'Massive clean water wastage and street inundation'
+      },
+      // --- SEED RESOLVED WORKS FOR THE CITY ---
+      {
+        id: `issue_local_5_${Date.now()}`,
+        category: 'garbage' as const,
+        title: `Cleared: Illegal Garbage Dump near Local Market Crossing`,
+        description: `A large open dump of mixed household plastic waste and garbage had formed over weeks, creating a major sanitational issue and severe foul odor for visitors.`,
+        status: 'resolved' as const,
+        location: {
+          lat: Number(lat) - 0.0011,
+          lng: Number(lng) + 0.0031,
+          address: `Opposite Market Block B, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'medium' as const,
+        createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'Sanitation & Waste Disposal Department',
+        upvotes: 21,
+        downvotes: 0,
+        votedUsers: {},
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_5_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          },
+          {
+            id: `t_local_5_2_${Date.now()}`,
+            status: 'resolved',
+            title: 'Resolution Completed',
+            description: 'All waste loaded into trucks, area fully swept and disinfected with chlorine bleach.',
+            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Municipal Sanitation Supervisor'
+          }
+        ],
+        slaDays: 3,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: 'https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=600&q=80',
+        resolutionNotes: 'All accumulated waste was fully carted away and the site disinfected.',
+        resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: `issue_local_6_${Date.now()}`,
+        category: 'road' as const,
+        title: `Resolved: Main Avenue Pavement Slabs Restored`,
+        description: `Footpath concrete slabs were completely cracked and displaced, forming a treacherous trap for elderly citizens walking in the morning.`,
+        status: 'closed' as const,
+        location: {
+          lat: Number(lat) + 0.0022,
+          lng: Number(lng) - 0.0035,
+          address: `Main Avenue Footpath, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'medium' as const,
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=600&q=80',
+        department: 'Urban Infrastructure & Highways Department',
+        upvotes: 19,
+        downvotes: 1,
+        votedUsers: {},
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_6_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: `t_local_6_2_${Date.now()}`,
+            status: 'resolved',
+            title: 'Slabs Replaced',
+            description: 'Re-graded soil layer and laid 15 brand-new reinforced pavement blocks.',
+            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Senior Engineering Contractor'
+          }
+        ],
+        slaDays: 5,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=600&q=80',
+        resolutionNotes: 'Brand-new heavy concrete pavement blocks have been successfully laid and inspected.',
+        resolvedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      // --- SEED SLA BREACHES FOR THE CITY ---
+      {
+        id: `issue_local_7_${Date.now()}`,
+        category: 'water' as const,
+        title: `🚨 SLA BREACH: Sewer Line Back-Flow in Central Sector`,
+        description: 'Raw sewerage is leaking and flowing backward onto the lanes outside residential buildings, producing extreme biohazard risks and foul smells. SLA limit has expired.',
+        status: 'assigned' as const,
+        location: {
+          lat: Number(lat) - 0.0033,
+          lng: Number(lng) - 0.0022,
+          address: `Lanes 4 to 6, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'high' as const,
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_rahul',
+        reportedByName: 'Rahul Verma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Municipal Sewerage & Drainage Division',
+        upvotes: 43,
+        downvotes: 0,
+        votedUsers: {},
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_7_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Rahul Verma with verified photo capture.',
+            timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Rahul Verma'
+          },
+          {
+            id: `t_local_7_2_${Date.now()}`,
+            status: 'assigned',
+            title: 'SLA Breached - Auto-Escalated',
+            description: 'Critical 4-day SLA window exceeded. Automated system escalation raised to High Sewerage Commissioner.',
+            timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Samadhan Setu SLA Engine'
+          }
+        ],
+        slaDays: 4,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 6 days ago. Severe raw sewage exposure across residential gates.'
+      },
+      {
+        id: `issue_local_8_${Date.now()}`,
+        category: 'safety' as const,
+        title: `🚨 SLA BREACH: Open High-Voltage Junction Box near Local Playground`,
+        description: 'An electrical junction cabinet is fully open with raw live wire terminals exposed directly onto the sidewalk where children gather to play in the evenings.',
+        status: 'in_progress' as const,
+        location: {
+          lat: Number(lat) + 0.0041,
+          lng: Number(lng) + 0.0019,
+          address: `Outside Main Playground Gate, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'high' as const,
+        createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Department of Electrical & Public Lighting',
+        upvotes: 52,
+        downvotes: 0,
+        votedUsers: {},
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_8_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: `t_local_8_2_${Date.now()}`,
+            status: 'in_progress',
+            title: 'SLA Limit Exceeded - Escalated',
+            description: 'Emergency 3-day SLA window breached with high priority. Automatic escalation sent to Electrical Safety Directorate.',
+            timestamp: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'SLA Escalation Bot'
+          }
+        ],
+        slaDays: 3,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 9 days ago. Critical electrocution hazard for children and pedestrians.'
       }
     ];
 
@@ -1249,7 +1464,7 @@ router.post('/issues/seed-local', async (req, res) => {
     }
 
     console.log(`✅ Successfully seeded local issues for ${city} (${area || ''})`);
-    res.json({ message: `Successfully seeded 4 civic issues for ${city} (${area || ''})`, seeded: true });
+    res.json({ message: `Successfully seeded 8 civic issues for ${city} (${area || ''})`, seeded: true });
   } catch (err) {
     console.error('Failed to seed local issues:', err);
     res.status(500).json({ error: 'Failed to seed local issues.' });
@@ -1257,7 +1472,7 @@ router.post('/issues/seed-local', async (req, res) => {
 });
 
 // 7. Report a new issue - triggering AI model if GEMINI_API_KEY is available
-router.post('/issues', actionLimiter, async (req, res) => {
+router.post('/issues', issueCreationLimiter, async (req, res) => {
   const { title, description, category, location, severity, image } = req.body;
   
   if (!description || !location || typeof location !== 'object') {
@@ -1810,6 +2025,160 @@ router.get('/predictive/risks', (req, res) => {
     }
   ];
   res.json(risks);
+});
+
+// POST /api/chat  — CivicBot general & platform Q&A powered by Gemini 3.5 Flash
+router.post('/chat', actionLimiter, async (req, res) => {
+  const { message, history } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: 'Message is required.' });
+  }
+
+  const sanitizedMessage = sanitizeInput(message);
+
+  if (ai) {
+    try {
+      console.log(`CivicBot chatting via Gemini AI (gemini-3.5-flash)...`);
+      
+      let contextPrompt = `You are CivicBot, the highly intelligent, capable, and friendly AI assistant for "Samadhan Setu" (Civic Hero), a digital governance platform that allows citizens to report municipal issues (roads, garbage, water leaks, streetlights, safety) and earn rewards (karma points, badges).
+      
+      You CAN answer ANY random general questions (science, history, technology, daily life, advice, general Q&A, math, jokes, trivia, recommendations) completely and elegantly, in addition to specific questions about Samadhan Setu.
+      
+      If asked about the platform:
+      - How to report: Use the "Report Hazard" tab.
+      - SLAs: 2 days for Safety, 3 days for Garbage, 5 days for Streetlights, 7 days for Roads.
+      - Rewards: 40 points for reporting, 10 for validating.
+      
+      Below is the conversation history followed by the user's latest query. Provide a direct, polite, helpful, and concise answer. Do not say "I can only record your query" or "I am an automated recorder" — you are fully capable of answering everything directly!
+      
+      Conversation History:
+      `;
+
+      if (Array.isArray(history)) {
+        history.forEach((msg: any) => {
+          const senderName = msg.sender === 'user' ? 'User' : 'CivicBot';
+          contextPrompt += `${senderName}: ${msg.text}\n`;
+        });
+      }
+
+      contextPrompt += `User: ${sanitizedMessage}\nCivicBot:`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: contextPrompt,
+        config: {
+          systemInstruction: 'You are CivicBot, an all-knowing smart AI assistant who answers both civic questions and any general Q&A queries. Be helpful and directly answer the user query.'
+        }
+      });
+
+      const reply = response.text || "I'm sorry, I couldn't process that response.";
+      return res.json({ reply });
+    } catch (err) {
+      console.error('Error in Gemini Chatbot API:', err);
+    }
+  }
+
+  // Fallback / Offline / Simulator response
+  let botReply = "I am running in local offline simulator mode. How can I help you improve our city today?";
+  const lowerText = sanitizedMessage.toLowerCase();
+  if (lowerText.includes('report')) {
+    botReply = "To report an issue, use the 'Report Hazard' tab. Provide a clear picture and location, and our AI will automatically classify the severity and route it to the correct department.";
+  } else if (lowerText.includes('sla') || lowerText.includes('time')) {
+    botReply = "Service Level Agreements (SLAs) vary: 2 days for Safety Hazards, 3 for Garbage, 5 for Streetlights, and 7 for Roads.";
+  } else if (lowerText.includes('badge') || lowerText.includes('points')) {
+    botReply = "You earn 40 points for reporting and 10 points for validating issues. Accumulate points to rank up and unlock exclusive Civic Badges!";
+  } else if (lowerText.includes('hello') || lowerText.includes('hi')) {
+    botReply = "Hello! Ready to make our community better? (Simulated fallback)";
+  } else {
+    botReply = `[Offline Simulator] I received: "${sanitizedMessage}". (To unlock full Gemini 3.5 AI general question-answering, make sure GEMINI_API_KEY is configured!)`;
+  }
+  return res.json({ reply: botReply });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CONTACT ADMIN SYSTEM ROUTES
+// ═══════════════════════════════════════════════════════════════
+
+// GET /api/contact  — Fetch all contact admin messages
+router.get('/contact', async (req, res) => {
+  try {
+    const list = await getContactMessages();
+    res.json(list);
+  } catch (err) {
+    console.error('Failed to get contact messages:', err);
+    res.status(500).json({ error: 'Failed to retrieve contact messages.' });
+  }
+});
+
+// POST /api/contact  — Submit a new message to the admin
+router.post('/contact', actionLimiter, async (req, res) => {
+  try {
+    const { name, email, subject, category, message } = req.body;
+    if (!name || !email || !subject || !category || !message) {
+      return res.status(400).json({ error: 'All fields (name, email, subject, category, message) are required.' });
+    }
+
+    const cleanName = sanitizeInput(name);
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanSubject = sanitizeInput(subject);
+    const cleanMessage = sanitizeInput(message);
+    const cleanCategory = ['feedback', 'bug', 'support', 'other'].includes(category) ? category : 'other';
+
+    const newMsg: ContactMessage = {
+      id: 'contact_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      name: cleanName,
+      email: cleanEmail,
+      subject: cleanSubject,
+      category: cleanCategory as any,
+      message: cleanMessage,
+      createdAt: new Date().toISOString(),
+      status: 'pending'
+    };
+
+    await saveContactMessage(newMsg);
+
+    const session = await getCurrentUserSession(req);
+    auditLog('CONTACT_ADMIN_CREATED', session?.id || 'anonymous', { subject: cleanSubject, category: cleanCategory }, req);
+
+    res.status(201).json({ success: true, message: 'Message successfully sent to the Admin!', ticket: newMsg });
+  } catch (err) {
+    console.error('Failed to save contact message:', err);
+    res.status(500).json({ error: 'Failed to send message to Admin. Please try again.' });
+  }
+});
+
+// POST /api/contact/:id/reply  — Reply to a contact message (authority/admin only)
+router.post('/contact/:id/reply', async (req, res) => {
+  try {
+    const { replyText } = req.body;
+    if (!replyText) {
+      return res.status(400).json({ error: 'Reply text is required.' });
+    }
+
+    const session = await getCurrentUserSession(req);
+    if (!session || session.role !== 'authority') {
+      return res.status(403).json({ error: 'Access denied. Only authority personnel can reply to tickets.' });
+    }
+
+    const list = await getContactMessages();
+    const found = list.find(m => m.id === req.params.id);
+    if (!found) {
+      return res.status(404).json({ error: 'Contact message not found.' });
+    }
+
+    const cleanReplyText = sanitizeInput(replyText);
+    found.replyText = cleanReplyText;
+    found.repliedAt = new Date().toISOString();
+    found.status = 'resolved';
+
+    await saveContactMessage(found);
+    auditLog('CONTACT_ADMIN_REPLIED', session.id, { ticketId: req.params.id }, req);
+
+    res.json({ success: true, message: 'Reply sent successfully!', ticket: found });
+  } catch (err) {
+    console.error('Failed to reply to contact message:', err);
+    res.status(500).json({ error: 'Failed to process reply.' });
+  }
 });
 
 export { router };

@@ -765,6 +765,515 @@ export async function ensureSeededData() {
         resolutionProofUrl: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=600&q=80',
         resolutionNotes: 'All bulbs replaced and tested for light output index.',
         resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      // --- BIDHANNAGAR / KESHTOPUR ISSUES ---
+      {
+        id: 'issue_bidhan_1',
+        category: 'streetlight',
+        title: 'Complete Blackout of Streetlights near Keshtopur Footbridge',
+        description: 'All streetlights along the service lane near the Keshtopur pedestrian footbridge are completely dark. Residents and women commuting back from the bus stop feel extremely unsafe.',
+        status: 'assigned',
+        location: {
+          lat: 22.5930,
+          lng: 88.4290,
+          address: 'Near Footbridge, VIP Road, Keshtopur, Bidhannagar',
+          area: 'Keshtopur',
+          city: 'Bidhannagar'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Public Lighting & Electricity Authority',
+        upvotes: 12,
+        downvotes: 0,
+        votedUsers: {
+          'user_aarav': 'valid',
+          'user_rahul': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_1_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          },
+          {
+            id: 't_bidhan_1_2',
+            status: 'assigned',
+            title: 'Government Department Assigned',
+            description: 'Assigned to Public Lighting & Electricity Authority.',
+            timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+            by: 'Admin Shibchandan'
+          }
+        ],
+        slaDays: 5,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Low visibility posing crime and pedestrian risks'
+      },
+      {
+        id: 'issue_bidhan_2',
+        category: 'garbage',
+        title: 'Secondary Waste Heap near Keshtopur Auto Stand Cleared',
+        description: 'Huge pile of garbage accumulated on VIP Road near Keshtopur Auto Stand, spilling onto the main road. The trash was attracting cattle and stray dogs, creating a major traffic block and stench.',
+        status: 'resolved',
+        location: {
+          lat: 22.5915,
+          lng: 88.4280,
+          address: 'Keshtopur Auto Stand, VIP Road, Keshtopur, Bidhannagar',
+          area: 'Keshtopur',
+          city: 'Bidhannagar'
+        },
+        severity: 'medium',
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'Sanitation & Waste Disposal Department',
+        upvotes: 16,
+        downvotes: 1,
+        votedUsers: {
+          'user_priya': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_2_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: 't_bidhan_2_2',
+            status: 'resolved',
+            title: 'Resolution Completed',
+            description: 'Cleared using municipal loader trucks and disinfected the area.',
+            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Admin Shibchandan'
+          }
+        ],
+        slaDays: 3,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: 'https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&w=600&q=80',
+        resolutionNotes: 'Cleared using municipal loader trucks and disinfected the area with bleaching powder.',
+        resolvedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'issue_bidhan_3',
+        category: 'water',
+        title: '🚨 SLA BREACH: Severe Drainage Overflow & Road Stagnation',
+        description: 'The open drainage system along Keshtopur Bazaar Road is completely choked, causing black sewage water to flood the market entrance. Shops are unable to operate due to the stagnation and mosquito menace.',
+        status: 'in_progress',
+        location: {
+          lat: 22.5945,
+          lng: 88.4300,
+          address: 'Keshtopur Bazaar Main Road, Keshtopur, Bidhannagar',
+          area: 'Keshtopur',
+          city: 'Bidhannagar'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_rahul',
+        reportedByName: 'Rahul Verma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Municipal Sewerage & Drainage Division',
+        upvotes: 34,
+        downvotes: 0,
+        votedUsers: {
+          'user_aarav': 'valid',
+          'user_priya': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_3_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Rahul Verma.',
+            timestamp: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Rahul Verma'
+          },
+          {
+            id: 't_bidhan_3_2',
+            status: 'in_progress',
+            title: 'SLA Expired - Escalated to Commission',
+            description: 'No response within 4 days. SLA automatically breached. Auto-escalated to higher-tier Municipal Commission.',
+            timestamp: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Samadhan Setu SLA Tracker'
+          }
+        ],
+        slaDays: 4,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 8 days ago. High risk of waterborne diseases and severe retail store impact.'
+      },
+      // --- SALT LAKE SECTOR V ISSUES ---
+      {
+        id: 'issue_bidhan_4',
+        category: 'road',
+        title: 'Severe Asphalt Crumbling on Webel Crossing Junction',
+        description: 'The Webel Crossing junction in Sector V has developed massive potholes, causing vehicles, especially office cabs, to brake suddenly, leading to bumper-to-bumper traffic gridlocks.',
+        status: 'community_verified',
+        location: {
+          lat: 22.5735,
+          lng: 88.4330,
+          address: 'Webel Crossing, Sector V, Salt Lake, Bidhannagar',
+          area: 'Salt Lake Sector V',
+          city: 'Bidhannagar'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?auto=format&fit=crop&w=600&q=80',
+        department: 'Urban Infrastructure & Highways Department',
+        upvotes: 18,
+        downvotes: 0,
+        votedUsers: {
+          'user_priya': 'valid',
+          'user_rahul': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_4_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          }
+        ],
+        slaDays: 7,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Heavy IT sector transit gridlock prevention'
+      },
+      {
+        id: 'issue_bidhan_5',
+        category: 'streetlight',
+        title: 'Flickering Smart LED Streetlights Restored opposite SDF Building',
+        description: 'Six consecutive streetlights on the Sector V Ring Road opposite SDF Building were flickering and went completely dark, causing low visibility at night.',
+        status: 'resolved',
+        location: {
+          lat: 22.5710,
+          lng: 88.4350,
+          address: 'Opp SDF Building, Sector V, Salt Lake, Bidhannagar',
+          area: 'Salt Lake Sector V',
+          city: 'Bidhannagar'
+        },
+        severity: 'medium',
+        createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80',
+        department: 'Public Lighting & Electricity Authority',
+        upvotes: 9,
+        downvotes: 0,
+        votedUsers: {
+          'user_aarav': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_5_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          },
+          {
+            id: 't_bidhan_5_2',
+            status: 'resolved',
+            title: 'Resolution Completed',
+            description: 'Replaced blown-out LED drivers and verified cable continuity.',
+            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Admin Shibchandan'
+          }
+        ],
+        slaDays: 5,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&w=600&q=80',
+        resolutionNotes: 'Replaced blown-out LED drivers and verified cable continuity.',
+        resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'issue_bidhan_6',
+        category: 'safety',
+        title: '🚨 SLA BREACH: Dangerous Low-hanging Overhead Power Cables',
+        description: 'Thick bundles of telecom and power cables are hanging loose, touching the pedestrian pathway just outside Sector V Metro Station. Extremely hazardous during rainy periods.',
+        status: 'assigned',
+        location: {
+          lat: 22.5695,
+          lng: 88.4310,
+          address: 'Near Sector V Metro Station Gate 2, Salt Lake, Bidhannagar',
+          area: 'Salt Lake Sector V',
+          city: 'Bidhannagar'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_rahul',
+        reportedByName: 'Rahul Verma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Telecom & Power Cable Regulatory Cell',
+        upvotes: 42,
+        downvotes: 1,
+        votedUsers: {
+          'user_aarav': 'valid',
+          'user_priya': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_bidhan_6_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Rahul Verma.',
+            timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Rahul Verma'
+          },
+          {
+            id: 't_bidhan_6_2',
+            status: 'assigned',
+            title: 'SLA Breached - Escalated to High Commissioner',
+            description: 'SLA limit of 3 days breached. Automatic critical priority escalation to Infrastructure Security Directorate.',
+            timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Samadhan Setu SLA Engine'
+          }
+        ],
+        slaDays: 3,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 7 days ago. Severe electrocution hazard for thousands of commuters.'
+      },
+      // --- OTHER INDIAN CITIES (MUMBAI, BENGALURU, KOLKATA) ---
+      {
+        id: 'issue_mumbai_1',
+        category: 'road',
+        title: 'Major Asphalt Craters and Potholes on Hill Road Junction',
+        description: 'Massive potholes have emerged on Hill Road near Elco Market, forcing double-decker buses and auto-rickshaws to weave erratically, resulting in massive traffic gridlocks.',
+        status: 'assigned',
+        location: {
+          lat: 19.0560,
+          lng: 72.8315,
+          address: 'Elco Junction, Hill Road, Bandra West, Mumbai',
+          area: 'Bandra West',
+          city: 'Mumbai'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?auto=format&fit=crop&w=600&q=80',
+        department: 'BMC Road Repairs & Maintenance Division',
+        upvotes: 27,
+        downvotes: 0,
+        votedUsers: {
+          'user_priya': 'valid'
+        },
+        comments: [],
+        timeline: [],
+        slaDays: 7,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null
+      },
+      {
+        id: 'issue_mumbai_2',
+        category: 'streetlight',
+        title: '🚨 SLA BREACH: Complete Blackout of Promenade Streetlights',
+        description: 'The entire stretch of promenade lamps near Carter Road Amphitheatre is completely dead. This is highly unsafe for evening runners and families.',
+        status: 'in_progress',
+        location: {
+          lat: 19.0645,
+          lng: 72.8220,
+          address: 'Amphitheatre Lane, Carter Road, Bandra West, Mumbai',
+          area: 'Bandra West',
+          city: 'Mumbai'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'BMC Public Lighting & Distribution Division',
+        upvotes: 39,
+        downvotes: 0,
+        votedUsers: {
+          'user_aarav': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_mumbai_2_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          }
+        ],
+        slaDays: 4,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 10 days ago. Dark spots on coastal tourist path.'
+      },
+      {
+        id: 'issue_blr_1',
+        category: 'water',
+        title: 'Sewage Contamination of Drinking Water Inlet at Indiranagar',
+        description: 'Raw sewage water is back-flowing into the clean drinking water pipeline for the households of 12th Main Road, Indiranagar. The water has a highly foul odor and black color.',
+        status: 'in_progress',
+        location: {
+          lat: 12.9715,
+          lng: 77.6405,
+          address: '12th Main Road, Indiranagar, Bengaluru',
+          area: 'Indiranagar',
+          city: 'Bengaluru'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_rahul',
+        reportedByName: 'Rahul Verma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'BWSSB Sewerage & Water Supply Board',
+        upvotes: 31,
+        downvotes: 0,
+        votedUsers: {
+          'user_aarav': 'valid'
+        },
+        comments: [],
+        timeline: [],
+        slaDays: 3,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null
+      },
+      {
+        id: 'issue_blr_2',
+        category: 'garbage',
+        title: '🚨 SLA BREACH: Massive Illegal Commercial Waste Dump on ORR Bypass',
+        description: 'A massive heap of commercial food waste, plastic packaging, and rotten vegetables has been dumped on the bypass service lane, completely blocking traffic.',
+        status: 'assigned',
+        location: {
+          lat: 12.9690,
+          lng: 77.6440,
+          address: 'Outer Ring Road Bypass Lane, Indiranagar, Bengaluru',
+          area: 'Indiranagar',
+          city: 'Bengaluru'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 11 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'BBMP Solid Waste Management Cell',
+        upvotes: 49,
+        downvotes: 2,
+        votedUsers: {
+          'user_priya': 'valid'
+        },
+        comments: [],
+        timeline: [],
+        slaDays: 3,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 8 days ago. Hazardous decaying organic waste attracting vermin.'
+      },
+      {
+        id: 'issue_blr_3',
+        category: 'road',
+        title: 'Broken footpath slabs on 100 Feet Road Replaced',
+        description: 'Concrete pedestrian pathway slabs are broken and loose, leaving deep open gaps into the storm water drain below.',
+        status: 'resolved',
+        location: {
+          lat: 12.9640,
+          lng: 77.6390,
+          address: 'Near Toit, 100 Feet Road, Indiranagar, Bengaluru',
+          area: 'Indiranagar',
+          city: 'Bengaluru'
+        },
+        severity: 'medium',
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=600&q=80',
+        department: 'BBMP Roads & Sidewalks Engineering',
+        upvotes: 15,
+        downvotes: 0,
+        votedUsers: {},
+        comments: [],
+        timeline: [],
+        slaDays: 5,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=600&q=80',
+        resolutionNotes: 'Replaced and laid 12 brand-new heavy concrete footway cover slabs.',
+        resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'issue_kol_3',
+        category: 'garbage',
+        title: '🚨 SLA BREACH: Illegal Medical Waste Dumping near AMRI Hospital',
+        description: 'Bags of discarded clinical plastics, used syringes, and medical waste have been illegally dumped on the lane leading to JC Block.',
+        status: 'community_verified',
+        location: {
+          lat: 22.5740,
+          lng: 88.4135,
+          address: 'JC Block Lane, Sector III, Salt Lake, Kolkata',
+          area: 'Salt Lake Sector III',
+          city: 'Kolkata'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'Bio-Hazard & Waste Disposal Cell',
+        upvotes: 56,
+        downvotes: 1,
+        votedUsers: {},
+        comments: [],
+        timeline: [],
+        slaDays: 2,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'SLA expired 7 days ago. Infectious bio-waste in public pathway.'
       }
     ];
 
@@ -786,9 +1295,28 @@ export async function ensureSeededData() {
         console.log('✅ Local data_session.json auto-seeded.');
       }
 
-      if (!fs.existsSync(issuesFile)) {
-        writeJsonFile(issuesFile, defaultIssues);
-        console.log('✅ Local data_issues.json auto-seeded.');
+      // Check and dynamically append/merge any missing default issues
+      let existingIssues: Issue[] = [];
+      if (fs.existsSync(issuesFile)) {
+        try {
+          existingIssues = readJsonFile(issuesFile) || [];
+        } catch (err) {
+          console.error('Failed to read existing issues:', err);
+        }
+      }
+
+      let mergedIssues = [...existingIssues];
+      let addedAny = false;
+      for (const defIssue of defaultIssues) {
+        if (!mergedIssues.some(i => i.id === defIssue.id)) {
+          mergedIssues.push(defIssue as any);
+          addedAny = true;
+        }
+      }
+
+      if (!fs.existsSync(issuesFile) || addedAny) {
+        writeJsonFile(issuesFile, mergedIssues);
+        console.log(`✅ Local data_issues.json seeded/updated with ${addedAny ? 'new' : 'all'} default issues.`);
       }
     } else {
       // Live Firestore Mode: Auto-seed the collections if issues is empty
@@ -814,6 +1342,15 @@ export async function ensureSeededData() {
           });
           
           console.log('✅ Live Firestore auto-seeded successfully!');
+        } else {
+          // Live merge any missing default issues
+          for (const issue of defaultIssues) {
+            const docSnap = await db.collection('issues').doc(issue.id).get();
+            if (!docSnap.exists) {
+              await db.collection('issues').doc(issue.id).set(issue);
+              console.log(`✅ Seeded missing default issue ${issue.id} to Firestore`);
+            }
+          }
         }
       } catch (fErr: any) {
         if (isFirestoreNotFoundError(fErr)) {
@@ -945,3 +1482,56 @@ export async function getOTPByToken(token: string): Promise<OTPRecord | null> {
     throw err;
   }
 }
+
+// ─── Contact Admin Database Helper functions ───────────────────
+const contactMessagesFile = path.join(process.cwd(), 'server', 'data_contact_messages.json');
+
+export async function getContactMessages(): Promise<any[]> {
+  if (isLocalMode) {
+    const list = readJsonFile(contactMessagesFile);
+    return list || [];
+  }
+  try {
+    const snapshot = await db.collection('contact_messages').get();
+    return snapshot.docs.map((doc: any) => doc.data());
+  } catch (err: any) {
+    if (isFirestoreNotFoundError(err)) {
+      enableLocalModeFallback();
+      const list = readJsonFile(contactMessagesFile);
+      return list || [];
+    }
+    throw err;
+  }
+}
+
+export async function saveContactMessage(msg: any): Promise<void> {
+  if (isLocalMode) {
+    const list = await getContactMessages();
+    const idx = list.findIndex(m => m.id === msg.id);
+    if (idx !== -1) {
+      list[idx] = msg;
+    } else {
+      list.push(msg);
+    }
+    writeJsonFile(contactMessagesFile, list);
+    return;
+  }
+  try {
+    await db.collection('contact_messages').doc(msg.id).set(msg);
+  } catch (err: any) {
+    if (isFirestoreNotFoundError(err)) {
+      enableLocalModeFallback();
+      const list = await getContactMessages();
+      const idx = list.findIndex(m => m.id === msg.id);
+      if (idx !== -1) {
+        list[idx] = msg;
+      } else {
+        list.push(msg);
+      }
+      writeJsonFile(contactMessagesFile, list);
+      return;
+    }
+    throw err;
+  }
+}
+

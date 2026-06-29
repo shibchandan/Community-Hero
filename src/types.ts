@@ -139,3 +139,18 @@ export interface LedgerRecord {
   txSimulated: string;
 }
 
+// ─── Contact Admin System Types ──────────────────────────────────
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  category: 'feedback' | 'bug' | 'support' | 'other';
+  message: string;
+  createdAt: string;
+  status: 'pending' | 'resolved';
+  replyText?: string;
+  repliedAt?: string;
+}
+
+

@@ -56,7 +56,7 @@ export default function InteractiveMap({
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [heatmapMode, setHeatmapMode] = useState<boolean>(false);
-  const [mapMode, setMapMode] = useState<'dark' | 'light' | 'satellite' | 'street'>('dark');
+  const [mapMode, setMapMode] = useState<'standard' | 'satellite' | 'street'>('standard');
   const [mapReady, setMapReady] = useState<boolean>(false);
 
   // States for user location beacon on the map
@@ -251,12 +251,8 @@ export default function InteractiveMap({
     };
   }, []);
 
-  // 1.1 Trigger geolocation on mount automatically so the app is immediately localized
-  useEffect(() => {
-    if (mapReady) {
-      fetchMyLocation();
-    }
-  }, [mapReady]);
+  // 1.1 Trigger geolocation only when explicitly requested by clicking the location button (Find Me on Map)
+  // Removed automatic geolocation trigger on mount to avoid locking location immediately.
 
   // 1.2 Dynamic Map Style/Mode Swapping Effect
   useEffect(() => {
@@ -268,13 +264,12 @@ export default function InteractiveMap({
       map.removeLayer(tileLayerRef.current);
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let url = theme === 'dark' 
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
     let attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
-    if (mapMode === 'light') {
-      url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-    } else if (mapMode === 'satellite') {
+    if (mapMode === 'satellite') {
       url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
       attribution = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
     } else if (mapMode === 'street') {
@@ -290,7 +285,7 @@ export default function InteractiveMap({
 
     newTiles.addTo(map);
     tileLayerRef.current = newTiles;
-  }, [mapMode, mapReady]);
+  }, [mapMode, theme, mapReady]);
 
   // 1.3 Handle Arbitrary Map Clicks (Google Maps Style)
   useEffect(() => {
@@ -1461,35 +1456,19 @@ export default function InteractiveMap({
             : 'bg-white/95 border-slate-200'
         }`}>
           <button
-            onClick={() => setMapMode('dark')}
-            aria-label="Tactical Dark Mode"
+            onClick={() => setMapMode('standard')}
+            aria-label="Standard Map Style"
             className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-              mapMode === 'dark'
+              mapMode === 'standard'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
                 : theme === 'dark'
                   ? 'text-gray-400 hover:text-white hover:bg-white/5'
                   : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
             }`}
-            title="Sleek High-Contrast Tactical Dark Grid"
+            title="Standard map view synchronized with your theme"
           >
-            <Moon className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Dark</span>
-          </button>
-          
-          <button
-            onClick={() => setMapMode('light')}
-            aria-label="Legible Light Mode"
-            className={`px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider uppercase transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
-              mapMode === 'light'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                : theme === 'dark'
-                  ? 'text-gray-400 hover:text-white hover:bg-white/5'
-                  : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-            title="Clean, Highly Legible Light Style"
-          >
-            <Sun className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Light</span>
+            <MapIcon className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Standard</span>
           </button>
 
           <button
@@ -1520,7 +1499,7 @@ export default function InteractiveMap({
             }`}
             title="Detailed Standard Street Map"
           >
-            <MapIcon className="w-3.5 h-3.5" />
+            <MapPin className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Street</span>
           </button>
         </div>

@@ -3,25 +3,201 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Issue, Comment, TimelineEvent, IssueCategory, SeverityLevel } from '../types';
 import { 
   CheckCircle2, AlertTriangle, MessageSquare, MapPin, 
   ThumbsUp, ThumbsDown, Clock, ShieldAlert, ChevronDown, 
   ChevronUp, Send, User, Calendar, Search, X, SlidersHorizontal,
-  ArrowUpDown, Flame, Star, Share2
+  ArrowUpDown, Flame, Star, Share2, ArrowLeft, Heart, MessageCircle,
+  Hash, Users, Image, Smile, Award, Check, AlertCircle, Plus, Sparkles
 } from 'lucide-react';
 import { BeforeAfterSlider } from './BeforeAfterSlider';
 
 interface CommunityFeedProps {
   issues: Issue[];
   selectedIssueId?: string;
-  onSelectIssue: (issue: Issue) => void;
+  onSelectIssue: (issue: Issue | undefined) => void;
   onVote: (issueId: string, voteType: 'valid' | 'invalid') => void;
   onAddComment: (issueId: string, commentText: string) => void;
   currentUserRole: 'citizen' | 'authority';
   theme?: 'dark' | 'light';
+  activeSubTab?: 'all' | 'unresolved' | 'resolved' | 'escalated';
+  onSubTabChange?: (tab: 'all' | 'unresolved' | 'resolved' | 'escalated') => void;
 }
+
+// ── Types for Community Board ────────────────────────────────────────────────
+interface BoardPost {
+  id: string;
+  authorName: string;
+  authorRole: 'citizen' | 'authority';
+  title: string;
+  content: string;
+  tag: '#general' | '#volunteering' | '#announcement' | '#praise' | '#alert';
+  imageUrl?: string;
+  likes: number;
+  likedByUser: boolean;
+  reactions: Record<string, number>;
+  comments: {
+    id: string;
+    authorName: string;
+    authorRole: 'citizen' | 'authority';
+    text: string;
+    createdAt: string;
+  }[];
+  createdAt: string;
+}
+
+// ── Types for Stream Chat ────────────────────────────────────────────────────
+interface ChatMessage {
+  id: string;
+  senderName: string;
+  senderRole: 'citizen' | 'authority';
+  text: string;
+  timestamp: string;
+}
+
+const PRE_SEEDED_POSTS: BoardPost[] = [
+  {
+    id: 'post-1',
+    authorName: 'Kunal Sen',
+    authorRole: 'citizen',
+    title: 'Sanjay Lake Park Cleanup Drive: Sunday morning! 🌳',
+    content: 'Hey everyone! Let\'s come together to clear plastic garbage along the walking track at Sanjay Lake Park. We\'ll start at 7:00 AM near the north entrance. Gloves and garbage bags will be provided by the local ward office. Let\'s make our lake clean and green again!',
+    tag: '#volunteering',
+    imageUrl: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&q=80&w=1000',
+    likes: 24,
+    likedByUser: false,
+    reactions: { '🎉': 12, '❤️': 8, '👏': 15 },
+    comments: [
+      {
+        id: 'bc-1',
+        authorName: 'Dr. Anita Sen',
+        authorRole: 'citizen',
+        text: 'I\'m definitely in! Bringing a couple of neighbors too.',
+        createdAt: new Date(Date.now() - 3600000 * 20).toISOString()
+      },
+      {
+        id: 'bc-2',
+        authorName: 'Vikram Sharma',
+        authorRole: 'authority',
+        text: 'Excellent initiative. I have instructed the sanitation crew to pick up all collected waste bags by 11:00 AM on Sunday. Keep up the amazing work!',
+        createdAt: new Date(Date.now() - 3600000 * 18).toISOString()
+      }
+    ],
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
+  },
+  {
+    id: 'post-2',
+    authorName: 'Riya Patil',
+    authorRole: 'citizen',
+    title: 'Sector 4 Water Leakage FIXED! 🎉💧',
+    content: 'Amazing news! The major water pipe burst near the main intersection of Sector 4 that was wasting thousands of liters of clean water has been completely repaired! The municipal crew worked overnight. Big thanks to the community for supporting the report on our portal and voting it to the top. This shows the power of samadhan!',
+    tag: '#praise',
+    imageUrl: 'https://images.unsplash.com/photo-1542013936693-8848e574047a?auto=format&fit=crop&q=80&w=1000',
+    likes: 38,
+    likedByUser: false,
+    reactions: { '👏': 22, '❤️': 14, '🎉': 19 },
+    comments: [
+      {
+        id: 'bc-3',
+        authorName: 'Subhash Mehta',
+        authorRole: 'citizen',
+        text: 'Yes! Walked past this morning, dry as a bone. Perfect fix.',
+        createdAt: new Date(Date.now() - 3600000 * 5).toISOString()
+      }
+    ],
+    createdAt: new Date(Date.now() - 3600000 * 8).toISOString()
+  },
+  {
+    id: 'post-3',
+    authorName: 'Sanjay Kapoor',
+    authorRole: 'authority',
+    title: 'Scheduled Power Interruption for Transformer Upgrade ⚡',
+    content: 'Please note that there will be a scheduled power outage tomorrow, June 30th, from 10:00 AM to 1:00 PM in Blocks B & C for critical transformer upgrades. This is to prevent regular voltage fluctuations in the area during peak summer. We appreciate your patience.',
+    tag: '#announcement',
+    likes: 12,
+    likedByUser: false,
+    reactions: { '👍': 8, '😮': 2 },
+    comments: [],
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString()
+  }
+];
+
+const PRE_SEEDED_CHANNELS: Record<string, ChatMessage[]> = {
+  '#general-discussions': [
+    {
+      id: 'msg-1',
+      senderName: 'Meera Nair',
+      senderRole: 'citizen',
+      text: 'Hello everyone! Hope the sanitation trucks are on schedule today.',
+      timestamp: new Date(Date.now() - 3600000 * 1.5).toISOString()
+    },
+    {
+      id: 'msg-2',
+      senderName: 'Rajesh Gowda',
+      senderRole: 'citizen',
+      text: 'Yes, Meera! Just saw them in Block A about 15 minutes ago.',
+      timestamp: new Date(Date.now() - 3600000 * 1.4).toISOString()
+    },
+    {
+      id: 'msg-3',
+      senderName: 'Arun Lal',
+      senderRole: 'citizen',
+      text: 'Great to hear. The garbage sorting drive seems to be working well too.',
+      timestamp: new Date(Date.now() - 3600000 * 1.2).toISOString()
+    }
+  ],
+  '#emergency-coordination': [
+    {
+      id: 'msg-4',
+      senderName: 'System Bot',
+      senderRole: 'authority',
+      text: '🚨 ALERT: High precipitation advisory issued. Heavy waterlogging potential at the Sector 11 underpass. Crews are being dispatched.',
+      timestamp: new Date(Date.now() - 3600000 * 3).toISOString()
+    },
+    {
+      id: 'msg-5',
+      senderName: 'Vikram Sharma',
+      senderRole: 'authority',
+      text: 'Can confirm, the water pump crew has arrived at the Sector 11 bypass. Stay safe and avoid the underpass for the next 2 hours.',
+      timestamp: new Date(Date.now() - 3600000 * 2.8).toISOString()
+    }
+  ],
+  '#volunteer-initiatives': [
+    {
+      id: 'msg-6',
+      senderName: 'Kunal Sen',
+      senderRole: 'citizen',
+      text: 'Who is free to help plant 10 new tree saplings near the Sector 4 community park this Saturday?',
+      timestamp: new Date(Date.now() - 3600000 * 5).toISOString()
+    },
+    {
+      id: 'msg-7',
+      senderName: 'Dr. Anita Sen',
+      senderRole: 'citizen',
+      text: 'Count me in! I can bring 4 neem saplings and some organic fertilizer.',
+      timestamp: new Date(Date.now() - 3600000 * 4.8).toISOString()
+    },
+    {
+      id: 'msg-8',
+      senderName: 'Rahul Verma',
+      senderRole: 'citizen',
+      text: 'I can help with the shovels and transport!',
+      timestamp: new Date(Date.now() - 3600000 * 4.5).toISOString()
+    }
+  ]
+};
+
+const CHAT_USERS = [
+  { name: 'Vikram Sharma', role: 'authority', status: 'online', avatarColor: 'bg-indigo-500' },
+  { name: 'Dr. Anita Sen', role: 'citizen', status: 'online', avatarColor: 'bg-emerald-500' },
+  { name: 'Rajesh Gowda', role: 'citizen', status: 'online', avatarColor: 'bg-blue-500' },
+  { name: 'Meera Nair', role: 'citizen', status: 'online', avatarColor: 'bg-pink-500' },
+  { name: 'Rahul Verma', role: 'citizen', status: 'away', avatarColor: 'bg-amber-500' },
+  { name: 'Kunal Sen', role: 'citizen', status: 'offline', avatarColor: 'bg-slate-500' }
+];
 
 export default function CommunityFeed({ 
   issues, 
@@ -30,9 +206,17 @@ export default function CommunityFeed({
   onVote, 
   onAddComment,
   currentUserRole,
-  theme = 'dark'
+  theme = 'dark',
+  activeSubTab,
+  onSubTabChange
 }: CommunityFeedProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'unresolved' | 'resolved' | 'escalated'>('unresolved');
+  // ── High-Level Hub Navigation ──────────────────────────────────────────────
+  const [hubTab, setHubTab] = useState<'incidents' | 'board' | 'chat'>('incidents');
+
+  // ── Incidents Feed States (Original) ────────────────────────────────────────
+  const [localActiveTab, setLocalActiveTab] = useState<'all' | 'unresolved' | 'resolved' | 'escalated'>('unresolved');
+  const activeTab = activeSubTab !== undefined ? activeSubTab : localActiveTab;
+  const setActiveTab = onSubTabChange !== undefined ? onSubTabChange : setLocalActiveTab;
   const [expandedCommentsId, setExpandedCommentsId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -41,7 +225,56 @@ export default function CommunityFeed({
   const [severityFilter, setSeverityFilter] = useState<SeverityLevel | 'all'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'upvotes' | 'sla_urgency'>('newest');
 
-  // ── Multi-dimensional filter + sort logic ────────────────────────────────
+  // ── Community Board States ──────────────────────────────────────────────────
+  const [boardPosts, setBoardPosts] = useState<BoardPost[]>(() => {
+    try {
+      const stored = localStorage.getItem('civic_board_posts');
+      return stored ? JSON.parse(stored) : PRE_SEEDED_POSTS;
+    } catch {
+      return PRE_SEEDED_POSTS;
+    }
+  });
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const [postTag, setPostTag] = useState<BoardPost['tag']>('#general');
+  const [postImageUrl, setPostImageUrl] = useState('');
+  const [postCommentTexts, setPostCommentTexts] = useState<Record<string, string>>({});
+  const [boardSearchQuery, setBoardSearchQuery] = useState('');
+  const [boardTagFilter, setBoardTagFilter] = useState<string>('all');
+
+  // Save board posts to localStorage
+  useEffect(() => {
+    localStorage.setItem('civic_board_posts', JSON.stringify(boardPosts));
+  }, [boardPosts]);
+
+  // ── Chat States ─────────────────────────────────────────────────────────────
+  const [activeChannel, setActiveChannel] = useState<string>('#general-discussions');
+  const [chatMessages, setChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    try {
+      const stored = localStorage.getItem('civic_chat_messages');
+      return stored ? JSON.parse(stored) : PRE_SEEDED_CHANNELS;
+    } catch {
+      return PRE_SEEDED_CHANNELS;
+    }
+  });
+  const [typedMessage, setTypedMessage] = useState('');
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Save chat to localStorage
+  useEffect(() => {
+    localStorage.setItem('civic_chat_messages', JSON.stringify(chatMessages));
+  }, [chatMessages]);
+
+  // Scroll to bottom when channel or messages change
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeChannel, typingUser]);
+
+  // ── Multi-dimensional filter + sort logic for Incidents (Original) ──────────
   const filteredIssues = useMemo(() => {
     let result = issues.filter(issue => {
       // Status tab filter
@@ -135,471 +368,1161 @@ export default function CommunityFeed({
     return `${days} days ago`;
   };
 
+  // ── Community Board Handlers ────────────────────────────────────────────────
+  const handleCreatePost = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postTitle.trim() || !postContent.trim()) return;
+
+    const newPost: BoardPost = {
+      id: `post-${Date.now()}`,
+      authorName: currentUserRole === 'authority' ? 'Vikram Sharma' : 'You (Citizen)',
+      authorRole: currentUserRole,
+      title: postTitle,
+      content: postContent,
+      tag: postTag,
+      imageUrl: postImageUrl.trim() ? postImageUrl : undefined,
+      likes: 0,
+      likedByUser: false,
+      reactions: {},
+      comments: [],
+      createdAt: new Date().toISOString()
+    };
+
+    setBoardPosts([newPost, ...boardPosts]);
+    setPostTitle('');
+    setPostContent('');
+    setPostImageUrl('');
+    setIsCreatingPost(false);
+  };
+
+  const handleLikePost = (postId: string) => {
+    setBoardPosts(boardPosts.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          likes: p.likedByUser ? p.likes - 1 : p.likes + 1,
+          likedByUser: !p.likedByUser
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddReaction = (postId: string, emoji: string) => {
+    setBoardPosts(boardPosts.map(p => {
+      if (p.id === postId) {
+        const reactions = { ...p.reactions };
+        reactions[emoji] = (reactions[emoji] || 0) + 1;
+        return { ...p, reactions };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddBoardComment = (postId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    const txt = postCommentTexts[postId];
+    if (!txt || !txt.trim()) return;
+
+    setBoardPosts(boardPosts.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          comments: [
+            ...p.comments,
+            {
+              id: `bc-${Date.now()}`,
+              authorName: currentUserRole === 'authority' ? 'Vikram Sharma' : 'You (Citizen)',
+              authorRole: currentUserRole,
+              text: txt,
+              createdAt: new Date().toISOString()
+            }
+          ]
+        };
+      }
+      return p;
+    }));
+
+    setPostCommentTexts({
+      ...postCommentTexts,
+      [postId]: ''
+    });
+  };
+
+  const filteredBoardPosts = useMemo(() => {
+    return boardPosts.filter(post => {
+      const tagMatches = boardTagFilter === 'all' || post.tag === boardTagFilter;
+      if (!tagMatches) return false;
+
+      if (boardSearchQuery.trim()) {
+        const q = boardSearchQuery.toLowerCase();
+        return post.title.toLowerCase().includes(q) || post.content.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [boardPosts, boardTagFilter, boardSearchQuery]);
+
+  // ── Chat Handlers ───────────────────────────────────────────────────────────
+  const handleSendChatMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!typedMessage.trim() || typingUser !== null) return;
+
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      senderName: currentUserRole === 'authority' ? 'Vikram Sharma' : 'You (Citizen)',
+      senderRole: currentUserRole,
+      text: typedMessage,
+      timestamp: new Date().toISOString()
+    };
+
+    const currentChannelMsgs = chatMessages[activeChannel] || [];
+    const updatedMessages = {
+      ...chatMessages,
+      [activeChannel]: [...currentChannelMsgs, userMsg]
+    };
+
+    setChatMessages(updatedMessages);
+    const sentText = typedMessage;
+    setTypedMessage('');
+
+    // Trigger Typing Simulation Response after a short delay
+    const typingDelay = 1200;
+    setTimeout(() => {
+      // Pick a random online participant
+      const responseCandidates = CHAT_USERS.filter(u => u.status === 'online' && u.name !== 'Vikram Sharma');
+      const randomParticipant = responseCandidates[Math.floor(Math.random() * responseCandidates.length)] || CHAT_USERS[1];
+      
+      setTypingUser(randomParticipant.name);
+
+      setTimeout(() => {
+        let replyText = 'That is a very interesting point! Let\'s discuss this at our next local assembly meeting.';
+        const lowerMsg = sentText.toLowerCase();
+
+        if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('hey')) {
+          replyText = `Hello! Glad to see you active in ${activeChannel}. How is everything in your sector today?`;
+        } else if (lowerMsg.includes('cleanup') || lowerMsg.includes('clean') || lowerMsg.includes('volunteer')) {
+          replyText = 'Oh I would absolutely love to join! Let\'s coordinate a date. Sunday morning is perfect for me.';
+        } else if (lowerMsg.includes('pothole') || lowerMsg.includes('road') || lowerMsg.includes(' streetlight')) {
+          replyText = 'Definitely log a report on the "Explore Radar" tab too. That gets tracked on the SLA clock instantly!';
+        } else if (lowerMsg.includes('water') || lowerMsg.includes('leak')) {
+          replyText = 'Water conservation is key. I\'ll check if the local technician is already dispatched near that road.';
+        } else if (lowerMsg.includes('rain') || lowerMsg.includes('flood') || lowerMsg.includes('storm')) {
+          replyText = 'Stay safe everyone! Make sure you keep your phone charged and avoid low waterlogged roads.';
+        }
+
+        const systemMsg: ChatMessage = {
+          id: `msg-${Date.now() + 1}`,
+          senderName: randomParticipant.name,
+          senderRole: randomParticipant.role as 'citizen' | 'authority',
+          text: replyText,
+          timestamp: new Date().toISOString()
+        };
+
+        setChatMessages(prev => ({
+          ...prev,
+          [activeChannel]: [...(prev[activeChannel] || []), systemMsg]
+        }));
+        setTypingUser(null);
+      }, 1500);
+
+    }, typingDelay);
+  };
+
   return (
     <div className="flex flex-col gap-4">
 
-      {/* ── Status Tabs ───────────────────────────────────────────────────── */}
-      <div className={`flex p-1 rounded-xl backdrop-blur-md ${
+      {/* ── Civic Hub Tab Selector ── */}
+      <div id="civic-hub-header" className={`flex p-1.5 rounded-2xl backdrop-blur-md border ${
         theme === 'dark' 
-          ? 'bg-white/5 border border-white/10' 
-          : 'bg-white/45 border border-white/80 shadow-xs'
+          ? 'bg-slate-900/60 border-white/10' 
+          : 'bg-white/80 border-slate-200 shadow-md'
       }`}>
-        {(['unresolved', 'resolved', 'escalated', 'all'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all capitalize cursor-pointer ${
-              activeTab === tab
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
-                : theme === 'dark'
-                  ? 'text-gray-400 hover:text-white hover:bg-white/5'
-                  : 'text-slate-700 hover:text-slate-950 hover:bg-white/50'
-            }`}
-          >
-            {tab === 'unresolved' ? 'Active Issues' : tab === 'resolved' ? 'Resolved Works' : tab === 'escalated' ? '🚨 SLA Breaches' : 'Backlog All'}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Search Bar ───────────────────────────────────────────────────── */}
-      <div className="relative">
-        <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${
-          theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
-        }`} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search issues by title, location, department..."
-          className={`w-full text-xs pl-10 pr-10 py-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
-            theme === 'dark'
-              ? 'bg-white/5 border-white/10 text-slate-100 placeholder-slate-600 focus:bg-white/8 focus:border-indigo-500/40'
-              : 'bg-white/70 border-slate-200 text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-400'
+        <button
+          id="tab-btn-incidents"
+          onClick={() => setHubTab('incidents')}
+          className={`flex-1 py-3 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            hubTab === 'incidents'
+              ? 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white shadow-md'
+              : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all cursor-pointer ${
-              theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+        >
+          <SlidersHorizontal className="w-4.5 h-4.5" />
+          Incidents Tracker
+        </button>
+        <button
+          id="tab-btn-board"
+          onClick={() => setHubTab('board')}
+          className={`flex-1 py-3 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            hubTab === 'board'
+              ? 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white shadow-md'
+              : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Calendar className="w-4.5 h-4.5" />
+          Community Board
+        </button>
+        <button
+          id="tab-btn-chat"
+          onClick={() => setHubTab('chat')}
+          className={`flex-1 py-3 px-4 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            hubTab === 'chat'
+              ? 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white shadow-md'
+              : theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <MessageSquare className="w-4.5 h-4.5" />
+          Live Citizen Chat
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+        </button>
       </div>
 
-      {/* ── Category Filter Chips ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-1.5">
-        {([
-          { id: 'all', label: '🗂 All Categories' },
-          { id: 'road', label: '🚧 Road' },
-          { id: 'garbage', label: '🚮 Garbage' },
-          { id: 'water', label: '💧 Water' },
-          { id: 'streetlight', label: '💡 Streetlight' },
-          { id: 'safety', label: '🚨 Safety' },
-        ] as { id: IssueCategory | 'all'; label: string }[]).map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setCategoryFilter(cat.id)}
-            className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
-              categoryFilter === cat.id
-                ? 'bg-indigo-600 text-white border-indigo-500/50 shadow-sm shadow-indigo-500/20'
-                : theme === 'dark'
-                  ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                  : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-xs'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Severity + Sort Row ──────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Severity */}
-        <div className="flex items-center gap-1.5">
-          <SlidersHorizontal className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Severity:</span>
-        </div>
-        {(['all', 'high', 'medium', 'low'] as const).map(sev => (
-          <button
-            key={sev}
-            onClick={() => setSeverityFilter(sev)}
-            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer capitalize ${
-              severityFilter === sev
-                ? sev === 'high' ? 'bg-rose-500 text-white border-rose-500/50'
-                  : sev === 'medium' ? 'bg-amber-500 text-white border-amber-500/50'
-                  : sev === 'low' ? 'bg-emerald-500 text-white border-emerald-500/50'
-                  : 'bg-indigo-600 text-white border-indigo-500/50'
-                : theme === 'dark'
-                  ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
-            }`}
-          >
-            {sev === 'all' ? 'All' : sev}
-          </button>
-        ))}
-
-        {/* Sort — pushed to right */}
-        <div className="ml-auto flex items-center gap-1.5">
-          <ArrowUpDown className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Sort:</span>
-          {([
-            { id: 'newest', label: 'Newest' },
-            { id: 'upvotes', label: '👍 Votes' },
-            { id: 'sla_urgency', label: '🔥 Urgency' },
-          ] as { id: typeof sortBy; label: string }[]).map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSortBy(s.id)}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                sortBy === s.id
-                  ? 'bg-indigo-600 text-white border-indigo-500/50 shadow-sm'
-                  : theme === 'dark'
-                    ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* ── Results Count ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <span className={`text-[11px] font-bold ${
-          theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
-        }`}>
-          Showing <span className={`font-black ${
-            theme === 'dark' ? 'text-white' : 'text-slate-900'
-          }`}>{filteredIssues.length}</span> of {issues.length} reports
-          {searchQuery && <span className={theme === 'dark' ? ' text-indigo-400' : ' text-indigo-600'}> for "{searchQuery}"</span>}
-        </span>
-        {(searchQuery || categoryFilter !== 'all' || severityFilter !== 'all' || sortBy !== 'newest') && (
-          <button
-            onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setSeverityFilter('all'); setSortBy('newest'); }}
-            className={`text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all ${
-              theme === 'dark' ? 'text-rose-400 hover:text-rose-300' : 'text-rose-500 hover:text-rose-700'
-            }`}
-          >
-            <X className="w-3 h-3" /> Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Feed List */}
-      <div className="space-y-4 max-h-[850px] overflow-y-auto pr-1">
-        {filteredIssues.length === 0 ? (
-          <div className={`p-12 text-center rounded-2xl border border-dashed ${
+      {/* ────────────────────────────────────────────────────────────────────────
+          TAB 1: INCIDENTS TRACKER (Original CommunityFeed Implementation)
+          ──────────────────────────────────────────────────────────────────────── */}
+      {hubTab === 'incidents' && (
+        <motion.div
+          key="incidents-hub"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="flex flex-col gap-4"
+        >
+          {/* ── Status Tabs ───────────────────────────────────────────────────── */}
+          <div className={`flex p-1 rounded-xl backdrop-blur-md ${
             theme === 'dark' 
-              ? 'bg-white/5 border-white/10 text-gray-400' 
-              : 'bg-white/40 border-white/70 text-slate-600'
+              ? 'bg-white/5 border border-white/10' 
+              : 'bg-white/45 border border-white/80 shadow-xs'
           }`}>
-            <Clock className="w-10 h-10 mx-auto mb-3 text-slate-400 dark:text-gray-400" />
-            <h4 className={`text-sm font-bold font-display ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>No Civic Complaints Matched</h4>
-            <p className="text-xs mt-1">This stream is currently clear. Use the reporter form to submit issues.</p>
-          </div>
-        ) : (
-          filteredIssues.map(issue => {
-            const isSelected = selectedIssueId === issue.id;
-            const upvotes = issue.upvotes || 0;
-            const downvotes = issue.downvotes || 0;
-            const totalVotes = upvotes + downvotes;
-            const confidenceScore = upvotes - downvotes;
-            
-            // SLA math
-            const issueAgeDays = Math.max(1, Math.floor((Date.now() - new Date(issue.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
-            const slaProgressPercent = Math.min(100, (issueAgeDays / issue.slaDays) * 100);
-
-            return (
-              <div
-                key={issue.id}
-                onClick={() => onSelectIssue(issue)}
-                className={`group p-5 rounded-2xl transition-all duration-300 border cursor-pointer hover:shadow-2xl ${
-                  isSelected 
-                    ? theme === 'dark'
-                      ? 'bg-white/10 border-indigo-500 ring-2 ring-indigo-500/50 glow-indigo' 
-                      : 'bg-white/80 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
+            {(['unresolved', 'resolved', 'escalated', 'all'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all capitalize cursor-pointer ${
+                  activeTab === tab
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 border border-indigo-500/50'
                     : theme === 'dark'
-                      ? 'bg-white/5 border-white/10 hover:border-white/20 hover:bg-white/10'
-                      : 'bg-white/40 border-white/60 hover:border-white/90 hover:bg-white/65'
+                      ? 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-white/50'
                 }`}
               >
-                {/* SLA Breach Warning Bar */}
-                {issue.escalated && issue.status !== 'closed' && (
-                  <div className="mb-4 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/25 flex items-center justify-between text-[10px] text-red-600 dark:text-red-400 animate-pulse">
-                    <span className="font-extrabold flex items-center gap-1">
-                      <ShieldAlert className="w-4 h-4 text-red-500" />
-                      AUTONOMOUS ESCALATION ACTIVE — OVERDUE BY {issueAgeDays - issue.slaDays} DAYS
-                    </span>
-                    <span className="font-mono bg-red-500/20 px-1.5 py-0.5 rounded text-[8px] uppercase font-bold">Priority SLA Breached</span>
-                  </div>
-                )}
+                {tab === 'unresolved' ? 'Active Issues' : tab === 'resolved' ? 'Resolved Works' : tab === 'escalated' ? '🚨 SLA Breaches' : 'Backlog All'}
+              </button>
+            ))}
+          </div>
 
-                {/* Header Info */}
-                <div className="flex justify-between items-start gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {getCategoryBadge(issue.category)}
-                      {getStatusBadge(issue.status)}
-                      <span className={`text-[10px] flex items-center gap-1 font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-bold'}`}>
-                        <Calendar className="w-3 h-3" />
+          {/* ── Search Bar ───────────────────────────────────────────────────── */}
+          <div className="relative">
+            <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${
+              theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+            }`} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search issues by title, location, department..."
+              className={`w-full text-xs pl-10 pr-10 py-3 rounded-xl border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                theme === 'dark'
+                  ? 'bg-white/5 border-white/10 text-slate-100 placeholder-slate-600 focus:bg-white/8 focus:border-indigo-500/40'
+                  : 'bg-white/70 border-slate-200 text-slate-900 placeholder-slate-400 shadow-sm focus:border-indigo-400'
+              }`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all cursor-pointer ${
+                  theme === 'dark' ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* ── Category Filter Chips ─────────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              { id: 'all', label: '🗂 All Categories' },
+              { id: 'road', label: '🚧 Road' },
+              { id: 'garbage', label: '🚮 Garbage' },
+              { id: 'water', label: '💧 Water' },
+              { id: 'streetlight', label: '💡 Streetlight' },
+              { id: 'safety', label: '🚨 Safety' },
+            ] as { id: IssueCategory | 'all'; label: string }[]).map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setCategoryFilter(cat.id)}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                  categoryFilter === cat.id
+                    ? 'bg-indigo-600 text-white border-indigo-500/50 shadow-sm shadow-indigo-500/20'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 shadow-xs'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Severity + Sort Row ──────────────────────────────────────────── */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Severity */}
+            <div className="flex items-center gap-1.5">
+              <SlidersHorizontal className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>Severity:</span>
+            </div>
+            {(['all', 'high', 'medium', 'low'] as const).map(sev => (
+              <button
+                key={sev}
+                onClick={() => setSeverityFilter(sev)}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer capitalize ${
+                  severityFilter === sev
+                    ? sev === 'high' ? 'bg-rose-500 text-white border-rose-500/50'
+                      : sev === 'medium' ? 'bg-amber-500 text-white border-amber-500/50'
+                      : sev === 'low' ? 'bg-emerald-500 text-white border-emerald-500/50'
+                      : 'bg-indigo-600 text-white border-indigo-500/50'
+                    : theme === 'dark'
+                      ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+                }`}
+              >
+                {sev === 'all' ? 'All' : sev}
+              </button>
+            ))}
+
+            {/* Sort ─ pushed to right */}
+            <div className="sm:ml-auto flex items-center gap-1.5">
+              <ArrowUpDown className={`w-3.5 h-3.5 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`} />
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as any)}
+                className={`text-[10px] font-bold py-1 px-2 rounded-lg border focus:outline-none cursor-pointer ${
+                  theme === 'dark'
+                    ? 'bg-slate-900 border-white/10 text-slate-300'
+                    : 'bg-white border-slate-200 text-slate-700 shadow-sm'
+                }`}
+              >
+                <option value="newest">🗓 Newest Reports</option>
+                <option value="upvotes">🔥 Community Priority</option>
+                <option value="sla_urgency">🚨 SLA Urgency Clock</option>
+              </select>
+            </div>
+          </div>
+
+          {/* ── Issues Stream List ───────────────────────────────────────────── */}
+          <div className="space-y-4">
+            {filteredIssues.length === 0 ? (
+              <div className={`p-8 text-center rounded-2xl border ${
+                theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'
+              }`}>
+                <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className={`text-xs font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800'}`}>No issues found Matching filters</p>
+                <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600'}`}>Try adjusting filters or submit a new hazard on the explore map page.</p>
+              </div>
+            ) : (
+              filteredIssues.map(issue => {
+                const isSelected = selectedIssueId === issue.id;
+                const totalVotes = issue.upvotes + issue.downvotes;
+                const confidenceScore = issue.upvotes - issue.downvotes;
+                
+                return (
+                  <div 
+                    key={issue.id}
+                    id={`issue-card-${issue.id}`}
+                    onClick={() => onSelectIssue(isSelected ? undefined : issue)}
+                    className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${
+                      isSelected 
+                        ? 'ring-2 ring-indigo-500/80 shadow-xl' 
+                        : 'hover:translate-y-[-1px]'
+                    } ${
+                      theme === 'dark'
+                        ? isSelected ? 'bg-slate-900/90 border-indigo-500' : 'bg-white/4 border-white/5 hover:bg-white/6 hover:border-white/10'
+                        : isSelected ? 'bg-white border-indigo-500 shadow-md' : 'bg-white border-slate-200/80 shadow-xs hover:border-slate-300 hover:bg-slate-50/50'
+                    }`}
+                  >
+                    {/* Header Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {getCategoryBadge(issue.category)}
+                        {getStatusBadge(issue.status)}
+                        {issue.escalated && (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500 text-white animate-pulse">
+                            🚨 SLA Breached
+                          </span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
                         {getDaysAgo(issue.createdAt)}
                       </span>
                     </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 font-display group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors">
-                      {issue.title}
-                    </h3>
-                  </div>
 
-                  {/* Severity Badge */}
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md text-white ${
-                    issue.severity === 'high' 
-                      ? 'bg-red-500 shadow-md shadow-red-500/20' 
-                      : issue.severity === 'medium' 
-                        ? 'bg-amber-500 shadow-md shadow-amber-500/20' 
-                        : 'bg-emerald-500'
-                  }`}>
-                    {issue.severity} Severity
-                  </span>
-                </div>
-
-                {/* Main description */}
-                <p className={`text-xs mt-3 line-clamp-3 ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-medium'}`}>
-                  {issue.description}
-                </p>
-
-                {/* Media / Before-After Slider */}
-                {issue.mediaUrl && (
-                  <div className="mt-4">
-                    <BeforeAfterSlider 
-                      beforeUrl={issue.mediaUrl} 
-                      afterUrl={issue.resolutionProofUrl} 
-                    />
-                  </div>
-                )}
-
-                {/* Geo Location / Department Label */}
-                <div className={`flex flex-wrap gap-4 mt-4 text-[11px] border-t pt-3 ${
-                  theme === 'dark' 
-                    ? 'text-slate-400 border-slate-800/60' 
-                    : 'text-slate-700 border-slate-200/60 font-medium'
-                }`}>
-                  <div className={`flex items-center gap-1 font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-900'}`}>
-                    <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{issue.location.address}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400">
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>Routed Agency: {issue.department}</span>
-                  </div>
-                </div>
-
-                {/* SLA Meter */}
-                {issue.status !== 'resolved' && issue.status !== 'closed' && (
-                  <div className="mt-3">
-                    <div className={`flex justify-between text-[9px] mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-bold'}`}>
-                      <span className="font-bold uppercase tracking-wider">SLA Performance Target</span>
-                      <span>{issueAgeDays} / {issue.slaDays} Days Used</span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          slaProgressPercent > 85 
-                            ? 'bg-red-500' 
-                            : slaProgressPercent > 60 
-                              ? 'bg-amber-500' 
-                              : 'bg-indigo-500'
-                        }`}
-                        style={{ width: `${slaProgressPercent}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Proof of Resolution (if available) - compact text version now that slider exists */}
-                {issue.resolvedAt && (
-                  <div className={`mt-4 p-3 rounded-xl flex flex-col md:flex-row gap-3 items-start md:items-center ${
-                    theme === 'dark' 
-                      ? 'bg-emerald-500/5 border border-emerald-500/10' 
-                      : 'bg-emerald-50 border border-emerald-200'
-                  }`}>
-                    <div className="flex-1 space-y-1">
-                      <h4 className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Resolution Confirmed & Sealed
-                      </h4>
-                      <p className={`text-xs italic ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-medium'}`}>
-                        "{issue.resolutionNotes}"
-                      </p>
-                      <span className={`text-[9px] block font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-bold'}`}>
-                        Closed Date: {new Date(issue.resolvedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Expand Accordion Section for interactive details */}
-                {isSelected && (
-                  <div className={`mt-5 space-y-5 border-t pt-4 animate-fadeIn ${
-                    theme === 'dark' ? 'border-slate-800/60' : 'border-slate-200/80'
-                  }`} onClick={(e) => e.stopPropagation()}>
-                    
-                    {/* Urgency Reason */}
-                    {issue.urgencyReason && (
-                      <div className={`p-3 rounded-xl border text-xs ${
-                        theme === 'dark' 
-                          ? 'bg-violet-500/5 border-violet-500/10 text-slate-300' 
-                          : 'bg-violet-50/85 border-violet-200 text-slate-850 font-medium'
-                      }`}>
-                        <span className="font-extrabold text-violet-600 dark:text-violet-400 block uppercase tracking-wider text-[9px] mb-1">AI Safety Analysis Risk Profile</span>
-                        "{issue.urgencyReason}"
+                    {/* Content Section */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      {/* Image Thumbnail */}
+                      <div className="md:col-span-1 h-24 md:h-20 w-full overflow-hidden rounded-xl border border-white/5 bg-slate-900">
+                        <img 
+                          src={issue.mediaUrl} 
+                          alt={issue.title} 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        />
                       </div>
-                    )}
 
-                    {/* Timeline Tracker */}
-                    <div>
-                      <h4 className={`text-[10px] font-bold uppercase tracking-wider mb-3 ${
-                        theme === 'dark' ? 'text-slate-500' : 'text-slate-700 font-extrabold'
-                      }`}>Incident SLA Resolution History</h4>
-                      <div className={`space-y-4 border-l-2 ml-2.5 pl-4 ${
-                        theme === 'dark' ? 'border-slate-800' : 'border-slate-300'
-                      }`}>
-                        {issue.timeline?.map((ev) => (
-                          <div key={ev.id} className="relative">
-                            {/* Bullet dot */}
-                            <span className={`absolute -left-[23px] top-1.5 flex h-2.5 w-2.5 items-center justify-center rounded-full ${
-                              ev.status === 'resolved' || ev.status === 'closed'
-                                ? 'bg-emerald-500 ring-4 ring-emerald-500/20'
-                                : ev.status === 'assigned' || ev.status === 'in_progress'
-                                  ? 'bg-indigo-500 ring-4 ring-indigo-500/20'
-                                  : 'bg-slate-400 ring-4 ring-slate-400/10'
-                            }`} />
-                            <div className="text-[11px]">
-                              <span className={`font-bold block ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>{ev.title}</span>
-                              <p className={`text-xs mt-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>{ev.description}</p>
-                              <div className={`flex gap-2 items-center text-[9px] mt-1 font-mono ${theme === 'dark' ? 'text-slate-400' : 'text-slate-650 font-bold'}`}>
-                                <span>{new Date(ev.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                <span>•</span>
-                                <span>Agent: {ev.by}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Voting Module */}
-                    {issue.status !== 'resolved' && issue.status !== 'closed' && (
-                      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border ${
-                        theme === 'dark' 
-                          ? 'bg-slate-500/5 border-slate-800/40' 
-                          : 'bg-slate-100/90 border-slate-300/80 shadow-xs'
-                      }`}>
+                      {/* Details */}
+                      <div className="md:col-span-4 flex flex-col justify-between">
                         <div>
-                          <h4 className={`text-xs font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>
-                            <Clock className="w-4 h-4 text-indigo-500" />
-                            Community Verification Threshold
-                          </h4>
-                          <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-750 font-semibold'}`}>
-                            Current Support: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{confidenceScore} Support votes</span> (Requires +2 Support to assign SLA Crew)
+                          <h3 className={`text-sm font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                            {issue.title}
+                          </h3>
+                          <p className={`text-xs line-clamp-2 mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+                            {issue.description}
                           </p>
                         </div>
+
+                        {/* Metadata Footer */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 text-[10px]">
+                          <span className={`flex items-center gap-1 font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
+                            <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            {issue.location.address}, {issue.location.area}
+                          </span>
+                          <span className={`flex items-center gap-1 font-mono font-bold ${
+                            issue.severity === 'high' ? 'text-rose-500' : issue.severity === 'medium' ? 'text-amber-500' : 'text-emerald-500'
+                          }`}>
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            {issue.severity.toUpperCase()} Priority
+                          </span>
+                          <span className={`flex items-center gap-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500 font-semibold'}`}>
+                            <User className="w-3.5 h-3.5 text-indigo-400" />
+                            By {issue.reportedByName}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded Detailed Panel */}
+                    {isSelected && (
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/5 space-y-4" onClick={e => e.stopPropagation()}>
                         
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => onVote(issue.id, 'valid')}
-                            className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <ThumbsUp className="w-3.5 h-3.5" /> Mark Valid (+10 Points)
-                          </button>
-                          <button
-                            onClick={() => onVote(issue.id, 'invalid')}
-                            className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-rose-500 border border-rose-500/20 hover:bg-rose-500/10 transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <ThumbsDown className="w-3.5 h-3.5" /> Reject
-                          </button>
+                        {/* SLA Info Card */}
+                        <div className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                          theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'
+                        }`}>
+                          <div className="space-y-1">
+                            <span className={`text-[10px] font-extrabold uppercase tracking-widest text-indigo-500 dark:text-indigo-400`}>SLA Department Routing</span>
+                            <p className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                              Assigned: {issue.department}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className={`w-4 h-4 ${issue.escalated ? 'text-rose-500 animate-spin' : 'text-indigo-500'}`} />
+                            <div className="text-left md:text-right">
+                              <span className={`text-[10px] block ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600 font-semibold'}`}>Resolution SLA Days</span>
+                              <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>{issue.slaDays} Days Goal</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-slate-200 dark:border-slate-800">
-                          <button
-                            onClick={() => {
-                              const url = `${window.location.origin}${window.location.pathname}?issueId=${issue.id}`;
-                              navigator.clipboard.writeText(url);
-                              alert('Link copied to clipboard!');
-                            }}
-                            className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/10 transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <Share2 className="w-3.5 h-3.5" /> Share Link
-                          </button>
+
+                        {/* Resolution Proof Slider (if available) */}
+                        {issue.status === 'resolved' && issue.resolutionProofUrl && (
+                          <div className="space-y-2">
+                            <h4 className={`text-xs font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800'}`}>
+                              <CheckCircle2 className="w-4 h-4" /> Before / After Resolution Inspection
+                            </h4>
+                            <div className="rounded-xl overflow-hidden border border-emerald-500/25 max-w-lg mx-auto">
+                              <BeforeAfterSlider 
+                                beforeUrl={issue.mediaUrl}
+                                afterUrl={issue.resolutionProofUrl}
+                              />
+                            </div>
+                            {issue.resolutionNotes && (
+                              <p className={`text-xs p-3 rounded-xl italic border ${
+                                theme === 'dark' ? 'bg-emerald-500/5 border-emerald-500/10 text-slate-300' : 'bg-emerald-50 border-emerald-200 text-emerald-950 font-medium'
+                              }`}>
+                                <strong className="not-italic block text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 mb-1">Crew Resolution Logs:</strong>
+                                "{issue.resolutionNotes}"
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action Log / Timeline */}
+                        <div className="space-y-2">
+                          <h4 className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                            theme === 'dark' ? 'text-slate-500' : 'text-slate-750 font-extrabold'
+                          }`}>
+                            <ShieldAlert className="w-3.5 h-3.5 text-indigo-500" /> Administrative Audit Trail ({issue.timeline?.length || 0})
+                          </h4>
+                          <div className={`p-3 rounded-xl space-y-3.5 border ${
+                            theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-150'
+                          }`}>
+                            {issue.timeline?.map((evt) => (
+                              <div key={evt.id} className="flex gap-3 text-xs">
+                                <div className="flex flex-col items-center">
+                                  <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                                  <div className="w-0.5 flex-1 bg-slate-200 dark:bg-white/10 mt-1" />
+                                </div>
+                                <div>
+                                  <p className={`font-bold ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>{evt.title}</p>
+                                  <p className={`text-[11px] mt-0.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>{evt.description}</p>
+                                  <span className={`text-[9px] block mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-600 font-semibold'}`}>
+                                    {getDaysAgo(evt.timestamp)} • Dispatch Auth: {evt.by}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
+
+                        {/* Voting Module */}
+                        {issue.status !== 'resolved' && issue.status !== 'closed' && (
+                          <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border ${
+                            theme === 'dark' 
+                              ? 'bg-slate-500/5 border-slate-800/40' 
+                              : 'bg-slate-100/90 border-slate-300/80 shadow-xs'
+                          }`}>
+                            <div>
+                              <h4 className={`text-xs font-bold flex items-center gap-1.5 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>
+                                <Clock className="w-4 h-4 text-indigo-500" />
+                                Community Verification Threshold
+                              </h4>
+                              <p className={`text-[10px] mt-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-750 font-semibold'}`}>
+                                Current Support: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{confidenceScore} Support votes</span> (Requires +2 Support to assign SLA Crew)
+                              </p>
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => onVote(issue.id, 'valid')}
+                                className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" /> Mark Valid (+10 Points)
+                              </button>
+                              <button
+                                onClick={() => onVote(issue.id, 'invalid')}
+                                className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-rose-500 border border-rose-500/20 hover:bg-rose-500/10 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" /> Reject
+                              </button>
+                            </div>
+                            <div className="flex gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4 border-slate-200 dark:border-slate-800">
+                              <button
+                                onClick={() => {
+                                  const url = `${window.location.origin}${window.location.pathname}?issueId=${issue.id}`;
+                                  navigator.clipboard.writeText(url);
+                                  alert('Link copied to clipboard!');
+                                }}
+                                className="text-[10px] font-bold px-3 py-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/10 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <Share2 className="w-3.5 h-3.5" /> Share Link
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Interactive Discussions */}
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                              theme === 'dark' ? 'text-slate-500' : 'text-slate-750 font-extrabold'
+                            }`}>
+                              <MessageSquare className="w-3.5 h-3.5" /> Constructive Discussion ({issue.comments?.length || 0})
+                            </h4>
+                          </div>
+
+                          {/* Comment Input */}
+                          <form onSubmit={(e) => handleCommentSubmit(issue.id, e)} className="flex gap-2 mb-3">
+                            <input
+                              type="text"
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              placeholder="Provide supportive details, safety advice, or coordinates clarification..."
+                              className={`flex-1 text-xs px-3 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                                theme === 'dark' 
+                                  ? 'border-slate-800 bg-slate-950/45 text-slate-100 placeholder-slate-600' 
+                                  : 'border-slate-300 bg-white/85 text-slate-900 placeholder-slate-500 font-medium shadow-xs'
+                              }`}
+                            />
+                            <button
+                              type="submit"
+                              className="px-3.5 py-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all cursor-pointer"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                            </button>
+                          </form>
+
+                          {/* Comment list */}
+                          <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                            {issue.comments?.length === 0 ? (
+                              <span className={`text-[10px] block italic text-center py-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-semibold'}`}>No comments logged. Keep discussion constructive.</span>
+                            ) : (
+                              issue.comments?.map((c) => (
+                                <div key={c.id} className={`p-2.5 rounded-lg border text-xs ${
+                                  theme === 'dark' 
+                                    ? 'bg-slate-900/30 border-slate-800/30' 
+                                    : 'bg-white/80 border-slate-200/60 shadow-xs'
+                                }`}>
+                                  <div className="flex justify-between items-center mb-1 text-[9px]">
+                                    <span className={`font-bold flex items-center gap-1 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>
+                                      <User className="w-3 h-3 text-indigo-400" />
+                                      {c.userName} ({c.userRole})
+                                    </span>
+                                    <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-bold'}>{getDaysAgo(c.createdAt)}</span>
+                                  </div>
+                                  <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-medium'}`}>{c.text}</p>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
                       </div>
                     )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+      )}
 
-                    {/* Interactive Discussions */}
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
-                          theme === 'dark' ? 'text-slate-500' : 'text-slate-750 font-extrabold'
-                        }`}>
-                          <MessageSquare className="w-3.5 h-3.5" /> Constructive Discussion ({issue.comments?.length || 0})
-                        </h4>
+      {/* ────────────────────────────────────────────────────────────────────────
+          TAB 2: COMMUNITY BOARD (Interactive Social Feed & Announcements)
+          ──────────────────────────────────────────────────────────────────────── */}
+      {hubTab === 'board' && (
+        <motion.div
+          key="board-hub"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="flex flex-col gap-4"
+        >
+          {/* Post Creation Toggle Button */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className={`text-sm font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>📢 Announcements & Volunteer Hub</h2>
+              <p className={`text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>Share community achievements, coordinate local action, and review public alerts.</p>
+            </div>
+            <button
+              id="btn-create-post"
+              onClick={() => setIsCreatingPost(!isCreatingPost)}
+              className="py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+            >
+              {isCreatingPost ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {isCreatingPost ? 'Close' : 'Create Post'}
+            </button>
+          </div>
+
+          {/* Create Post Card */}
+          <AnimatePresence>
+            {isCreatingPost && (
+              <motion.form
+                id="create-post-form"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                onSubmit={handleCreatePost}
+                className={`p-4 rounded-2xl border space-y-3.5 ${
+                  theme === 'dark' ? 'bg-slate-900/90 border-indigo-500/40' : 'bg-white border-slate-300 shadow-md'
+                }`}
+              >
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>Post Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={postTitle}
+                    onChange={e => setPostTitle(e.target.value)}
+                    placeholder="e.g., Volunteer Plantation Drive this Friday!"
+                    className={`w-full text-xs p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                      theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>Tag / Category</label>
+                    <select
+                      value={postTag}
+                      onChange={e => setPostTag(e.target.value as any)}
+                      className={`w-full text-xs p-2.5 rounded-xl border focus:outline-none ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    >
+                      <option value="#general">💬 #general (Chitchat)</option>
+                      <option value="#volunteering">🌱 #volunteering (Local events)</option>
+                      <option value="#praise">👏 #praise (Success stories)</option>
+                      <option value="#announcement">📢 #announcement (Official notices)</option>
+                      <option value="#alert">🚨 #alert (Critical updates)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>Cover Image URL (Optional)</label>
+                    <input
+                      type="url"
+                      value={postImageUrl}
+                      onChange={e => setPostImageUrl(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className={`w-full text-xs p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                        theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className={`text-[10px] font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>Post Content</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={postContent}
+                    onChange={e => setPostContent(e.target.value)}
+                    placeholder="Tell your neighbors what is happening or what assistance you need..."
+                    className={`w-full text-xs p-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                      theme === 'dark' ? 'bg-slate-950 border-white/10 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingPost(false)}
+                    className="py-2 px-4 rounded-xl text-xs font-bold border border-slate-300 hover:bg-slate-100 dark:border-white/15 dark:hover:bg-white/5 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white font-bold text-xs shadow-md cursor-pointer"
+                  >
+                    Publish Announcement
+                  </button>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {/* Board Filters & Search Row */}
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative flex-1">
+              <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${
+                theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+              }`} />
+              <input
+                type="text"
+                value={boardSearchQuery}
+                onChange={e => setBoardSearchQuery(e.target.value)}
+                placeholder="Search board stories..."
+                className={`w-full text-xs pl-10 pr-4 py-2.5 rounded-xl border focus:outline-none ${
+                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+                }`}
+              />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {['all', '#general', '#volunteering', '#praise', '#announcement', '#alert'].map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setBoardTagFilter(tag)}
+                  className={`text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                    boardTagFilter === tag
+                      ? 'bg-indigo-600 text-white border-indigo-500/50'
+                      : theme === 'dark'
+                        ? 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-xs'
+                  }`}
+                >
+                  {tag === 'all' ? '🏷 All Tags' : tag}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Board Feed Stream */}
+          <div className="space-y-4">
+            {filteredBoardPosts.length === 0 ? (
+              <div className={`p-8 text-center rounded-2xl border ${
+                theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'
+              }`}>
+                <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                <p className="text-xs font-bold">No announcements matching filters</p>
+                <p className="text-[10px] text-slate-500 mt-1">Be the first to share an update with your neighborhood!</p>
+              </div>
+            ) : (
+              filteredBoardPosts.map(post => {
+                const postColorMap: Record<string, string> = {
+                  '#volunteering': 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10',
+                  '#praise': 'text-purple-500 border-purple-500/20 bg-purple-500/5 dark:bg-purple-500/10',
+                  '#announcement': 'text-sky-500 border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10',
+                  '#alert': 'text-rose-500 border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10',
+                  '#general': 'text-slate-400 border-slate-500/20 bg-slate-500/5 dark:bg-slate-500/10'
+                };
+
+                return (
+                  <div
+                    key={post.id}
+                    id={`post-card-${post.id}`}
+                    className={`p-4 rounded-2xl border space-y-3.5 transition-all duration-300 ${
+                      theme === 'dark'
+                        ? 'bg-white/4 border-white/5 hover:border-white/10'
+                        : 'bg-white border-slate-200 shadow-xs hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Header Author Info */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white bg-indigo-500`}>
+                          {post.authorName.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-extrabold ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900'}`}>{post.authorName}</span>
+                            <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border ${
+                              post.authorRole === 'authority' 
+                                ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' 
+                                : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            }`}>
+                              {post.authorRole}
+                            </span>
+                          </div>
+                          <p className={`text-[9px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400 font-bold'}`}>{getDaysAgo(post.createdAt)}</p>
+                        </div>
                       </div>
 
-                      {/* Comment Input */}
-                      <form onSubmit={(e) => handleCommentSubmit(issue.id, e)} className="flex gap-2 mb-3">
+                      <span className={`text-[10px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-lg border ${postColorMap[post.tag] || ''}`}>
+                        {post.tag}
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <div className="space-y-2">
+                      <h3 className={`text-sm font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                        {post.title}
+                      </h3>
+                      <p className={`text-xs whitespace-pre-wrap ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>
+                        {post.content}
+                      </p>
+                      
+                      {post.imageUrl && (
+                        <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-slate-900 mt-2">
+                          <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Reactions, Likes & Comments Count Row */}
+                    <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 dark:border-white/5 gap-2 text-xs">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleLikePost(post.id)}
+                          className={`flex items-center gap-1 py-1 px-2.5 rounded-lg border transition-all cursor-pointer ${
+                            post.likedByUser
+                              ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 font-extrabold'
+                              : 'hover:bg-slate-100 dark:hover:bg-white/5 border-transparent text-slate-500'
+                          }`}
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${post.likedByUser ? 'fill-rose-500 text-rose-500' : ''}`} />
+                          <span>{post.likes}</span>
+                        </button>
+
+                        {/* Preset Reactions */}
+                        <div className="flex items-center gap-1.5 border-l border-slate-200 dark:border-white/5 pl-3">
+                          {['🎉', '👏', '❤️'].map(emoji => {
+                            const count = post.reactions[emoji] || 0;
+                            return (
+                              <button
+                                key={emoji}
+                                onClick={() => handleAddReaction(post.id, emoji)}
+                                className="hover:scale-125 transition-transform p-1 cursor-pointer"
+                                title={`React with ${emoji}`}
+                              >
+                                <span>{emoji}</span>
+                                {count > 0 && <span className="text-[10px] ml-0.5 font-bold text-slate-500">{count}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className={`flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>{post.comments.length} Comments logged</span>
+                      </div>
+                    </div>
+
+                    {/* Board Comments list */}
+                    <div className="space-y-2 mt-2">
+                      {post.comments.map(c => (
+                        <div key={c.id} className={`p-2.5 rounded-lg text-xs border ${
+                          theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200/50'
+                        }`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1 text-[9px] font-bold">
+                              <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-900 font-extrabold'}>{c.authorName}</span>
+                              <span className="opacity-50">•</span>
+                              <span className={`uppercase tracking-widest text-[8px] px-1 rounded border ${
+                                c.authorRole === 'authority' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/15' : 'bg-slate-500/10 text-slate-400 border-slate-500/15'
+                              }`}>{c.authorRole}</span>
+                            </div>
+                            <span className={`text-[9px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{getDaysAgo(c.createdAt)}</span>
+                          </div>
+                          <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>{c.text}</p>
+                        </div>
+                      ))}
+
+                      {/* Comment Form */}
+                      <form onSubmit={(e) => handleAddBoardComment(post.id, e)} className="flex gap-2 pt-1.5">
                         <input
                           type="text"
-                          value={commentText}
-                          onChange={(e) => setCommentText(e.target.value)}
-                          placeholder="Provide supportive details, safety advice, or coordinates clarification..."
-                          className={`flex-1 text-xs px-3 py-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                            theme === 'dark' 
-                              ? 'border-slate-800 bg-slate-950/45 text-slate-100 placeholder-slate-600' 
-                              : 'border-slate-300 bg-white/85 text-slate-900 placeholder-slate-500 font-medium shadow-xs'
+                          required
+                          value={postCommentTexts[post.id] || ''}
+                          onChange={e => setPostCommentTexts({ ...postCommentTexts, [post.id]: e.target.value })}
+                          placeholder="Type a constructive response..."
+                          className={`flex-1 text-xs px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                            theme === 'dark' ? 'bg-slate-950 border-white/10 text-white placeholder-slate-600' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
                           }`}
                         />
                         <button
                           type="submit"
-                          className="px-3.5 py-2 rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all cursor-pointer"
+                          className="px-3.5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all cursor-pointer shadow-xs"
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
                       </form>
-
-                      {/* Comment list */}
-                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                        {issue.comments?.length === 0 ? (
-                          <span className={`text-[10px] block italic text-center py-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-semibold'}`}>No comments logged. Keep discussion constructive.</span>
-                        ) : (
-                          issue.comments?.map((c) => (
-                            <div key={c.id} className={`p-2.5 rounded-lg border text-xs ${
-                              theme === 'dark' 
-                                ? 'bg-slate-900/30 border-slate-800/30' 
-                                : 'bg-white/80 border-slate-200/60 shadow-xs'
-                            }`}>
-                              <div className="flex justify-between items-center mb-1 text-[9px]">
-                                <span className={`font-bold flex items-center gap-1 ${theme === 'dark' ? 'text-slate-200' : 'text-slate-900 font-extrabold'}`}>
-                                  <User className="w-3 h-3 text-indigo-400" />
-                                  {c.userName} ({c.userRole})
-                                </span>
-                                <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-bold'}>{getDaysAgo(c.createdAt)}</span>
-                              </div>
-                              <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-medium'}`}>{c.text}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
                     </div>
 
                   </div>
-                )}
+                );
+              })
+            )}
+          </div>
+        </motion.div>
+      )}
 
+      {/* ────────────────────────────────────────────────────────────────────────
+          TAB 3: STREAM-LIKE LIVE CIVIC CHAT
+          ──────────────────────────────────────────────────────────────────────── */}
+      {hubTab === 'chat' && (
+        <motion.div
+          key="chat-hub"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className={`grid grid-cols-1 lg:grid-cols-4 rounded-2xl border overflow-hidden h-[480px] ${
+            theme === 'dark' ? 'bg-slate-900/40 border-white/10' : 'bg-white border-slate-200 shadow-md'
+          }`}
+        >
+          {/* Chat Left Sidebar: Channels list */}
+          <div className={`col-span-1 border-r flex flex-col justify-between ${
+            theme === 'dark' ? 'border-white/10 bg-slate-950/20' : 'border-slate-200 bg-slate-50'
+          }`}>
+            <div className="p-3 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Civic Rooms</span>
+                <Users className="w-3.5 h-3.5 text-indigo-500" />
               </div>
-            );
-          })
-        )}
-      </div>
+              <div className="space-y-1">
+                {Object.keys(chatMessages).map(ch => {
+                  const isActive = activeChannel === ch;
+                  const descMap: Record<string, string> = {
+                    '#general-discussions': 'Local news & weather',
+                    '#emergency-coordination': 'Precautions & response',
+                    '#volunteer-initiatives': 'Cleanup & plantations'
+                  };
+
+                  return (
+                    <button
+                      key={ch}
+                      onClick={() => setActiveChannel(ch)}
+                      className={`w-full text-left p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-between ${
+                        isActive
+                          ? 'bg-indigo-600 text-white font-bold shadow-md'
+                          : theme === 'dark'
+                            ? 'text-slate-400 hover:text-white hover:bg-white/5'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                      }`}
+                    >
+                      <div className="flex flex-col truncate">
+                        <span className="text-xs font-bold truncate flex items-center gap-1.5">
+                          <Hash className="w-3.5 h-3.5 shrink-0" />
+                          {ch.replace('#', '')}
+                        </span>
+                        <span className={`text-[9px] truncate mt-0.5 ${isActive ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          {descMap[ch]}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Current user mini card */}
+            <div className={`p-3.5 border-t flex items-center gap-2.5 ${theme === 'dark' ? 'border-white/10 bg-slate-950/45' : 'border-slate-200 bg-white'}`}>
+              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                Y
+              </div>
+              <div className="truncate">
+                <p className="text-xs font-bold truncate">You (Citizen)</p>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-[9px] text-emerald-500 font-extrabold uppercase tracking-wider">Online Lounge</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Center Pane: Message Log & Input */}
+          <div className="col-span-1 lg:col-span-2 flex flex-col justify-between h-full relative bg-transparent">
+            {/* Channel Title */}
+            <div className={`p-3 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/10 bg-slate-950/10' : 'border-slate-200 bg-slate-50'}`}>
+              <div className="flex items-center gap-1.5">
+                <Hash className="w-4 h-4 text-indigo-500" />
+                <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                  {activeChannel.replace('#', '')}
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                Stream Native Engine
+              </span>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 max-h-[360px]">
+              {(chatMessages[activeChannel] || []).map(msg => {
+                const isMe = msg.senderName.includes('You');
+                
+                return (
+                  <div key={msg.id} className={`flex gap-2.5 max-w-[85%] ${isMe ? 'ml-auto flex-row-reverse' : ''}`}>
+                    {/* Avatar */}
+                    {!isMe && (
+                      <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                        {msg.senderName.charAt(0)}
+                      </div>
+                    )}
+                    
+                    {/* Speech Bubble */}
+                    <div className="space-y-0.5">
+                      <div className={`flex items-center gap-1.5 text-[9px] ${isMe ? 'justify-end' : ''}`}>
+                        <span className={`font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-800 font-extrabold'}`}>{msg.senderName}</span>
+                        <span className={`uppercase text-[7px] px-1 rounded border opacity-60 ${
+                          msg.senderRole === 'authority' ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/10' : 'bg-slate-500/15 text-slate-400 border-slate-500/10'
+                        }`}>{msg.senderRole}</span>
+                      </div>
+                      
+                      <div className={`p-3 rounded-2xl text-xs leading-relaxed ${
+                        isMe 
+                          ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-tr-none shadow-md' 
+                          : theme === 'dark'
+                            ? 'bg-white/5 border border-white/5 text-slate-100 rounded-tl-none'
+                            : 'bg-slate-100 border border-slate-200/50 text-slate-800 rounded-tl-none'
+                      }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Typing simulation container */}
+              {typingUser && (
+                <div className="flex gap-2.5 items-center max-w-[80%]">
+                  <div className="w-7 h-7 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 animate-pulse">
+                    {typingUser.charAt(0)}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] font-bold text-slate-400">{typingUser}</span>
+                    <div className={`p-2.5 rounded-2xl rounded-tl-none text-xs flex items-center gap-1 ${
+                      theme === 'dark' ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      <span className="text-[10px] font-semibold italic">typing</span>
+                      <span className="flex gap-0.5 items-center">
+                        <span className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Chat message input form */}
+            <form onSubmit={handleSendChatMessage} className={`p-3 border-t flex gap-2 ${theme === 'dark' ? 'border-white/10 bg-slate-950/15' : 'border-slate-200 bg-slate-50'}`}>
+              <input
+                type="text"
+                required
+                disabled={typingUser !== null}
+                value={typedMessage}
+                onChange={e => setTypedMessage(e.target.value)}
+                placeholder={typingUser ? "Waiting for response..." : "Type a message in this channel..."}
+                className={`flex-1 text-xs px-3.5 py-2.5 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                  theme === 'dark' 
+                    ? 'bg-slate-950 border-white/10 text-white placeholder-slate-600 disabled:opacity-50' 
+                    : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 disabled:opacity-50'
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={typingUser !== null}
+                className="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white transition-all cursor-pointer shadow-md"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+
+          {/* Chat Right Sidebar: Online Citizens */}
+          <div className={`hidden lg:flex col-span-1 flex-col p-3.5 space-y-3 ${
+            theme === 'dark' ? 'bg-slate-950/10' : 'bg-slate-50/50'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Room Citizens</span>
+              <span className="text-[10px] font-bold text-indigo-500">6 Members</span>
+            </div>
+            
+            <div className="space-y-2.5 flex-1 overflow-y-auto">
+              {CHAT_USERS.map(user => {
+                const isOnline = user.status === 'online';
+                const isAway = user.status === 'away';
+
+                return (
+                  <div key={user.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6.5 h-6.5 rounded-full ${user.avatarColor} text-white flex items-center justify-center font-bold text-[10px]`}>
+                        {user.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-bold truncate max-w-[110px]">{user.name}</p>
+                        <span className="text-[8px] uppercase tracking-widest text-slate-500">{user.role}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        isOnline ? 'bg-emerald-500' : isAway ? 'bg-amber-400' : 'bg-slate-500'
+                      }`}></span>
+                      <span className="text-[8.5px] uppercase tracking-wider text-slate-500">{user.status}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className={`p-2.5 rounded-xl border text-[10px] ${
+              theme === 'dark' ? 'bg-white/2 border-white/5 text-slate-400' : 'bg-indigo-50/50 border-indigo-100 text-indigo-950 font-medium'
+            }`}>
+              💡 <span className="font-bold">Pro-tip:</span> Ask about cleanups, power, or flooding to trigger smart citizen coordination!
+            </div>
+          </div>
+        </motion.div>
+      )}
 
     </div>
   );

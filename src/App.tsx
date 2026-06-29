@@ -22,13 +22,14 @@ import UserProfile from './components/UserProfile';
 import Sidebar from './components/Sidebar';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { CivicBot } from './components/CivicBot';
+import ContactAdminModal from './components/ContactAdminModal';
 import { EmergencyBroadcastBanner } from './components/EmergencyBroadcastBanner';
 import { BlockchainLedger } from './components/BlockchainLedger';
 import { WhatsAppBotDemo } from './components/WhatsAppBotDemo';
-import GoogleDocsSupport from './components/GoogleDocsSupport';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
-  UserCheck, RefreshCw, Layers, Loader2, Menu, X, Sun, Moon
+  UserCheck, RefreshCw, Layers, Loader2, Menu, X, Sun, Moon,
+  LifeBuoy, HelpCircle, Send, CheckCircle
 } from 'lucide-react';
 
 // --- Session Persistence Helpers ---
@@ -61,7 +62,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(loadStoredSession);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState<string | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile' | 'ledger' | 'whatsapp' | 'docs'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile' | 'ledger' | 'whatsapp'>('map');
+  const [activeFeedTab, setActiveFeedTab] = useState<'all' | 'unresolved' | 'resolved' | 'escalated'>('unresolved');
   const [theme, setTheme] = useState<'dark' | 'light'>(loadStoredTheme);
   const [loading, setLoading] = useState(true);
   const [fbUser, setFbUser] = useState<any>(null);
@@ -69,6 +71,7 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyTab, setPolicyTab] = useState<'privacy' | 'terms'>('privacy');
+  const [showContactModal, setShowContactModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [globalCityFilter, setGlobalCityFilter] = useState<string>('New Delhi');
   const [globalAreaFilter, setGlobalAreaFilter] = useState<string>('All Areas');
@@ -386,12 +389,26 @@ export default function App() {
   };
 
   // Map click or list click selecting an issue
-  const handleSelectIssue = (issue: Issue) => {
-    setSelectedIssueId(issue.id);
+  const handleSelectIssue = (issue: Issue | undefined) => {
+    setSelectedIssueId(issue?.id);
     setActiveTab('feed');
   };
 
   const activeIssue = displayedIssues.find(i => i.id === selectedIssueId);
+
+  const isFocusedIssueVisible = useMemo(() => {
+    if (!activeIssue) return false;
+    if (activeFeedTab === 'unresolved') {
+      return activeIssue.status !== 'resolved' && activeIssue.status !== 'closed';
+    }
+    if (activeFeedTab === 'resolved') {
+      return activeIssue.status === 'resolved' || activeIssue.status === 'closed';
+    }
+    if (activeFeedTab === 'escalated') {
+      return !!activeIssue.escalated;
+    }
+    return true;
+  }, [activeIssue, activeFeedTab]);
 
   if (fbLoading) {
     return (
@@ -599,18 +616,6 @@ export default function App() {
                 }`} title="Sync">
                 <RefreshCw className="w-4 h-4" />
               </button>
-              {/* Header Theme Switcher Button */}
-              <button
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  theme === 'dark' 
-                    ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-white/10' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
-                }`}
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
             </div>
           </div>
         ) : (
@@ -653,18 +658,6 @@ export default function App() {
                 className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
                 Sign In / Register
               </button>
-              {/* Header Theme Switcher Button */}
-              <button
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
-                  theme === 'dark' 
-                    ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-white/10' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
-                }`}
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
             </div>
           </div>
         )}
@@ -674,7 +667,7 @@ export default function App() {
         <EmergencyBroadcastBanner theme={theme} />
 
       {/* ------------------ MAIN INTERACTIVE CONTAINER ------------------ */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 py-6">
+      <main className="relative z-10 w-full max-w-full px-4 lg:px-6 py-6">
         
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24">
@@ -714,25 +707,37 @@ export default function App() {
                   {/* Micro sidebar with short overview */}
                   <div className="xl:col-span-1 space-y-4">
                     <div className="p-5 bento-card">
-                      <h4 className="text-sm font-bold font-display text-white mb-2 flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-indigo-400" />
+                      <h4 className={`text-sm font-bold font-display mb-2 flex items-center gap-1.5 ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'
+                      }`}>
+                        <Layers className={`w-4 h-4 ${theme === 'dark' ? 'text-indigo-400' : 'text-indigo-600'}`} />
                         Active Sector Overview
                       </h4>
-                      <p className="text-xs text-slate-400 leading-relaxed">
+                      <p className={`text-xs leading-relaxed ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-700 font-medium'
+                      }`}>
                         Select any pin on the radar map to view its active validation states, upvotes, and departmental assignment timelines.
                       </p>
-                      <div className="mt-4 border-t border-white/10 pt-3 space-y-2 text-xs">
+                      <div className={`mt-4 border-t pt-3 space-y-2 text-xs ${
+                        theme === 'dark' ? 'border-white/10' : 'border-slate-200'
+                      }`}>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Potholes & Roads:</span>
-                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'road').length} cases</span>
+                          <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-semibold'}>Potholes & Roads:</span>
+                          <span className={`font-bold font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                            {displayedIssues.filter(i => i.category === 'road').length} cases
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Garbage Overflows:</span>
-                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'garbage').length} cases</span>
+                          <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-semibold'}>Garbage Overflows:</span>
+                          <span className={`font-bold font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                            {displayedIssues.filter(i => i.category === 'garbage').length} cases
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-400">Broken Streetlights:</span>
-                          <span className="font-bold font-mono text-white">{displayedIssues.filter(i => i.category === 'streetlight').length} cases</span>
+                          <span className={theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-semibold'}>Broken Streetlights:</span>
+                          <span className={`font-bold font-mono ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                            {displayedIssues.filter(i => i.category === 'streetlight').length} cases
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -758,7 +763,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                   className="grid grid-cols-1 lg:grid-cols-4 gap-6"
                 >
-                  <div className="lg:col-span-3">
+                  <div className={isFocusedIssueVisible ? "lg:col-span-3" : "lg:col-span-4"}>
                     <CommunityFeed 
                       issues={displayedIssues}
                       selectedIssueId={selectedIssueId}
@@ -767,10 +772,12 @@ export default function App() {
                       onAddComment={handleAddComment}
                       currentUserRole={currentUser?.role || 'citizen'}
                       theme={theme}
+                      activeSubTab={activeFeedTab}
+                      onSubTabChange={setActiveFeedTab}
                     />
                   </div>
                   {/* Filter / Selected info card */}
-                  <div className={`lg:col-span-1 ${activeIssue ? 'block' : 'hidden lg:block'}`}>
+                  <div className={`lg:col-span-1 ${isFocusedIssueVisible ? 'block' : 'hidden'}`}>
                     {activeIssue ? (
                       <div className="p-5 bento-card sticky top-6 space-y-4">
                         <h4 className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Quick Details Focused</h4>
@@ -839,11 +846,17 @@ export default function App() {
                       />
                     </div>
                   ) : (
-                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                    <div className={`max-w-md mx-auto p-8 rounded-2xl bento-card text-center relative overflow-hidden border ${
+                      theme === 'dark' ? 'border-white/10' : 'border-slate-200 shadow-xl'
+                    }`}>
                       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-indigo-500 to-blue-600" />
                       <Sparkles className="w-12 h-12 text-indigo-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-bold text-white font-display">Report Civic Hazard</h3>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      <h3 className={`text-lg font-bold font-display ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'
+                      }`}>Report Civic Hazard</h3>
+                      <p className={`text-xs mt-2 leading-relaxed ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'
+                      }`}>
                         You must sign in or register to report a new civic issue. Our AI automatically classifies and routes reported issues to city maintenance teams.
                       </p>
                       <button
@@ -878,11 +891,17 @@ export default function App() {
                       />
                     </div>
                   ) : (
-                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                    <div className={`max-w-md mx-auto p-8 rounded-2xl bento-card text-center relative overflow-hidden border ${
+                      theme === 'dark' ? 'border-white/10' : 'border-slate-200 shadow-xl'
+                    }`}>
                       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-rose-500 to-orange-500" />
                       <Shield className="w-12 h-12 text-rose-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-bold text-white font-display">SLA Dispatch Console</h3>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      <h3 className={`text-lg font-bold font-display ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'
+                      }`}>SLA Dispatch Console</h3>
+                      <p className={`text-xs mt-2 leading-relaxed ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'
+                      }`}>
                         Access to the SLA Dispatch work orders console is restricted to authorized municipal accounts. Please sign in to access dispatcher tools.
                       </p>
                       <button
@@ -914,11 +933,17 @@ export default function App() {
                       theme={theme}
                     />
                   ) : (
-                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                    <div className={`max-w-md mx-auto p-8 rounded-2xl bento-card text-center relative overflow-hidden border ${
+                      theme === 'dark' ? 'border-white/10' : 'border-slate-200 shadow-xl'
+                    }`}>
                       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-500 to-yellow-500" />
                       <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-bold text-white font-display">Hero Center</h3>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      <h3 className={`text-lg font-bold font-display ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'
+                      }`}>Hero Center</h3>
+                      <p className={`text-xs mt-2 leading-relaxed ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'
+                      }`}>
                         Track community impact scores, unlock badges, and rise in ranks! Sign in to view your profile and the citizen leaderboard.
                       </p>
                       <button
@@ -996,20 +1021,6 @@ export default function App() {
                 </motion.div>
               )}
 
-              {/* 6.e Google Docs Hub Tab */}
-              {activeTab === 'docs' && (
-                <motion.div
-                  key="docs"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full"
-                >
-                  <GoogleDocsSupport theme={theme} issues={displayedIssues} />
-                </motion.div>
-              )}
-
               {/* 7. My Profile Tab */}
               {activeTab === 'profile' && (
                 <motion.div
@@ -1031,11 +1042,17 @@ export default function App() {
                       }}
                     />
                   ) : (
-                    <div className="max-w-md mx-auto p-8 rounded-2xl bento-card text-center border border-white/10 relative overflow-hidden">
+                    <div className={`max-w-md mx-auto p-8 rounded-2xl bento-card text-center relative overflow-hidden border ${
+                      theme === 'dark' ? 'border-white/10' : 'border-slate-200 shadow-xl'
+                    }`}>
                       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-cyan-500 to-indigo-600" />
                       <UserCheck className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
-                      <h3 className="text-lg font-bold text-white font-display">My Civic Profile</h3>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      <h3 className={`text-lg font-bold font-display ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'
+                      }`}>My Civic Profile</h3>
+                      <p className={`text-xs mt-2 leading-relaxed ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'
+                      }`}>
                         Sign in to view your profile, submitted reports, badges, and trust score.
                       </p>
                       <button
@@ -1060,7 +1077,7 @@ export default function App() {
           ? 'bg-slate-950/20 border-white/5 text-slate-400'
           : 'bg-slate-50 border-indigo-100/40 text-slate-500 font-medium'
       }`}>
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+        <div className="w-full max-w-full px-4 lg:px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex flex-col md:items-start items-center gap-1">
             <p className={`font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
               © 2026 Samadhan Setu Civic Platform.
@@ -1091,6 +1108,18 @@ export default function App() {
               }`}
             >
               Terms of Service
+            </button>
+            <span className="opacity-30">•</span>
+            <button 
+              onClick={() => setShowContactModal(true)}
+              className={`transition-colors hover:underline cursor-pointer flex items-center gap-1 ${
+                theme === 'dark' 
+                  ? 'text-emerald-400 hover:text-emerald-300' 
+                  : 'text-emerald-700 hover:text-emerald-800'
+              }`}
+            >
+              <LifeBuoy className="w-3.5 h-3.5 animate-spin-slow" />
+              Contact Admin Support
             </button>
           </div>
         </div>
@@ -1236,6 +1265,14 @@ export default function App() {
 
       {/* ── Global AI Chatbot ────────────────────────────────────────── */}
       <CivicBot theme={theme} />
+
+      {/* ── Contact Admin & Support Modal ───────────────────────────────── */}
+      <ContactAdminModal 
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        currentUser={currentUser}
+        theme={theme}
+      />
     </div>
   );
 }

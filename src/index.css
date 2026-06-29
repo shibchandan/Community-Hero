@@ -26,15 +26,15 @@
   }
 
   .bento-bg-light {
-    background-color: #5c8cf4;
+    background-color: #f8fafc;
     background-image: 
-      radial-gradient(at 0% 0%, rgba(219, 234, 254, 0.95) 0px, transparent 50%),
-      radial-gradient(at 50% 0%, rgba(191, 219, 254, 0.9) 0px, transparent 55%),
-      radial-gradient(at 100% 0%, rgba(238, 242, 255, 0.95) 0px, transparent 50%),
-      radial-gradient(at 95% 45%, rgba(253, 164, 186, 0.7) 0px, transparent 45%),
-      radial-gradient(at 5% 55%, rgba(224, 242, 254, 0.8) 0px, transparent 45%),
-      radial-gradient(at 50% 100%, rgba(254, 205, 211, 0.8) 0px, transparent 50%),
-      linear-gradient(135deg, #4f86f7 0%, #9061f9 45%, #ec4899 80%, #f43f5e 100%);
+      radial-gradient(at 0% 0%, rgba(241, 245, 249, 0.95) 0px, transparent 50%),
+      radial-gradient(at 50% 0%, rgba(224, 242, 254, 0.4) 0px, transparent 55%),
+      radial-gradient(at 100% 0%, rgba(243, 244, 246, 0.95) 0px, transparent 50%),
+      radial-gradient(at 95% 45%, rgba(224, 242, 254, 0.2) 0px, transparent 45%),
+      radial-gradient(at 5% 55%, rgba(248, 250, 252, 0.8) 0px, transparent 45%),
+      radial-gradient(at 50% 100%, rgba(238, 242, 255, 0.4) 0px, transparent 50%),
+      linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
     background-size: 100% 100%;
     background-attachment: fixed;
     position: relative;
@@ -50,11 +50,11 @@
   }
 
   .theme-light .bento-card {
-    background: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(40px) saturate(190%);
     -webkit-backdrop-filter: blur(40px) saturate(190%);
-    border: 1px solid rgba(255, 255, 255, 0.75);
-    box-shadow: 0 16px 45px 0 rgba(31, 38, 135, 0.15), inset 0 2px 2px 0 rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 0 12px 30px 0 rgba(15, 23, 42, 0.04), inset 0 2px 2px 0 rgba(255, 255, 255, 1);
   }
 
   .bento-card-interactive {

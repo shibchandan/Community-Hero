@@ -14,11 +14,15 @@ import hpp from 'hpp';
 import mongoSanitize from 'express-mongo-sanitize';
 import cookieParser from 'cookie-parser';
 import { router as apiRouter } from './server/routes';
+import { sqlInjectionShield, malwareUploadShield, ddosTimeoutShield } from './server/security';
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Apply connection timeout shield early to mitigate Slowloris/DDoS attacks
+app.use(ddosTimeoutShield(30000));
 
 // Enable 'trust proxy' so Express and express-rate-limit correctly recognize real client IPs behind Cloud Run proxies
 app.set('trust proxy', 1);
@@ -59,15 +63,19 @@ app.use(cors({
 // Set up cookie parsing
 app.use(cookieParser());
 
-// Set up JSON & URL-encoded body parsing with file limits
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Set up JSON & URL-encoded body parsing with tightened limits (preventing memory blowup DDoS)
+app.use(express.json({ limit: '6mb' }));
+app.use(express.urlencoded({ extended: true, limit: '6mb' }));
 
 // Sanitize user input to prevent NoSQL injection
 app.use(mongoSanitize());
 
 // Protect against HTTP Parameter Pollution attacks
 app.use(hpp());
+
+// Apply SQL Injection protection and Malware Upload protection shields globally
+app.use(sqlInjectionShield);
+app.use(malwareUploadShield);
 
 // Apply Anti-Abuse Bot Middleware
 app.use((req, res, next) => {

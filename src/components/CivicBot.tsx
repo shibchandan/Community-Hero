@@ -35,7 +35,7 @@ export function CivicBot({ theme }: CivicBotProps) {
     if (isOpen) scrollToBottom();
   }, [messages, isOpen]);
 
-  const handleSend = (text: string) => {
+  const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
     const userMessage: Message = {
@@ -44,12 +44,35 @@ export function CivicBot({ theme }: CivicBotProps) {
       text
     };
 
+    const currentHistory = [...messages, userMessage];
+
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text,
+          history: currentHistory.map(m => ({ sender: m.sender, text: m.text }))
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: data.reply
+        }]);
+      } else {
+        throw new Error('API response not ok');
+      }
+    } catch (err) {
+      console.error('Failed to communicate with CivicBot API, running local fallback:', err);
+      // Simulate AI response delay for consistency in fallback
       let botReply = "I've recorded your query. Is there anything else you need help with?";
       
       const lowerText = text.toLowerCase();
@@ -68,8 +91,9 @@ export function CivicBot({ theme }: CivicBotProps) {
         sender: 'bot',
         text: botReply
       }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (

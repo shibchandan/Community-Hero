@@ -15,7 +15,7 @@ import { Issue } from '../types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp' | 'docs';
+type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -45,7 +45,6 @@ const NAV_ITEMS = [
   { id: 'analytics'  as TabId, label: 'Admin Analytics',   icon: TrendingUp,     group: 'tools' },
   { id: 'ledger'     as TabId, label: 'Proof Ledger',       icon: Link2,          group: 'advanced' },
   { id: 'whatsapp'   as TabId, label: 'WhatsApp Bot',       icon: MessageCircle,  group: 'advanced' },
-  { id: 'docs'       as TabId, label: 'Google Docs Hub',   icon: FileText,       group: 'advanced' },
 ];
 
 // ── NavButton ─────────────────────────────────────────────────────────────────
@@ -239,36 +238,7 @@ export default function Sidebar({
           expanded={expanded}
         />
 
-        {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-          className={`w-full flex items-center gap-3 py-2 rounded-xl cursor-pointer transition-all duration-200 group overflow-hidden ${
-            expanded ? 'px-3' : 'px-0 justify-center'
-          } ${
-            theme === 'dark'
-              ? 'text-slate-400 hover:text-white hover:bg-white/8'
-              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-          }`}
-        >
-          {theme === 'dark'
-            ? <Sun className="w-5 h-5 shrink-0 group-hover:rotate-45 transition-transform" />
-            : <Moon className="w-5 h-5 shrink-0" />
-          }
-          <AnimatePresence initial={false}>
-            {expanded && (
-              <motion.span
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                transition={{ duration: 0.15 }}
-                className="text-xs font-bold whitespace-nowrap overflow-hidden"
-              >
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
+
 
         {/* User / Login */}
         {currentUser ? (
