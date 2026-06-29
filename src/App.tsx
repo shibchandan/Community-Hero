@@ -28,7 +28,7 @@ import { WhatsAppBotDemo } from './components/WhatsAppBotDemo';
 import GoogleDocsSupport from './components/GoogleDocsSupport';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
-  UserCheck, RefreshCw, Layers, Loader2, Menu, X
+  UserCheck, RefreshCw, Layers, Loader2, Menu, X, Sun, Moon
 } from 'lucide-react';
 
 // --- Session Persistence Helpers ---
@@ -139,8 +139,13 @@ export default function App() {
         const dataUsers = await resUsers.json();
         setUsersList(dataUsers);
       }
-    } catch (err) {
-      console.error('Failed to synchronize database state with server:', err);
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('Failed to fetch') || errMsg.includes('Load failed')) {
+        console.warn('Database sync: Server is temporarily offline or restarting. Retrying soon...');
+      } else {
+        console.error('Failed to synchronize database state with server:', err);
+      }
     } finally {
       if (showLoading === true) setLoading(false);
     }
@@ -299,6 +304,15 @@ export default function App() {
     return Array.from(cities).sort();
   }, [issues]);
 
+  // Keep the selected city filter aligned with what is actually available in the database
+  useEffect(() => {
+    if (availableCities.length > 0) {
+      if (globalCityFilter !== 'All Cities' && !availableCities.includes(globalCityFilter)) {
+        setGlobalCityFilter(availableCities[0]);
+      }
+    }
+  }, [availableCities, globalCityFilter]);
+
   const availableAreas = useMemo(() => {
     const areas = new Set<string>();
     issues.forEach(issue => {
@@ -440,6 +454,19 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Mobile Theme Toggle Button */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className={`p-2 rounded-xl border cursor-pointer transition-all ${
+              theme === 'dark' 
+                ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-white/10' 
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
+            }`}
+          >
+            {theme === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+          </button>
+
           <NotificationBell issues={displayedIssues} currentUser={currentUser} theme={theme}
             onSelectIssue={(id) => { const f = displayedIssues.find(i => i.id === id); if (f) handleSelectIssue(f); }}
           />
@@ -540,26 +567,26 @@ export default function App() {
                 value={globalCityFilter}
                 onChange={(e) => setGlobalCityFilter(e.target.value)}
                 className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                  theme === 'dark' ? 'bg-indigo-950 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
                 title="Filter by City"
               >
-                <option value="All Cities">🌎 ALL CITIES</option>
+                <option value="All Cities" className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>🌎 ALL CITIES</option>
                 {availableCities.map(city => (
-                  <option key={city} value={city}>📍 {city.toUpperCase()}</option>
+                  <option key={city} value={city} className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>📍 {city.toUpperCase()}</option>
                 ))}
               </select>
               <select
                 value={globalAreaFilter}
                 onChange={(e) => setGlobalAreaFilter(e.target.value)}
                 className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                  theme === 'dark' ? 'bg-indigo-950 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
                 title="Filter by Zone"
               >
-                <option value="All Areas">🌎 ALL ZONES</option>
+                <option value="All Areas" className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>🌎 ALL ZONES</option>
                 {availableAreas.map(area => (
-                  <option key={area} value={area}>📍 {area.toUpperCase()}</option>
+                  <option key={area} value={area} className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>📍 {area.toUpperCase()}</option>
                 ))}
               </select>
               <button onClick={handleToggleRole}
@@ -571,6 +598,18 @@ export default function App() {
                   theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                 }`} title="Sync">
                 <RefreshCw className="w-4 h-4" />
+              </button>
+              {/* Header Theme Switcher Button */}
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-white/10' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
+                }`}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -588,31 +627,43 @@ export default function App() {
                 value={globalCityFilter}
                 onChange={(e) => setGlobalCityFilter(e.target.value)}
                 className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                  theme === 'dark' ? 'bg-indigo-950 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
                 title="Filter by City"
               >
-                <option value="All Cities">🌎 ALL CITIES</option>
+                <option value="All Cities" className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>🌎 ALL CITIES</option>
                 {availableCities.map(city => (
-                  <option key={city} value={city}>📍 {city.toUpperCase()}</option>
+                  <option key={city} value={city} className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>📍 {city.toUpperCase()}</option>
                 ))}
               </select>
               <select
                 value={globalAreaFilter}
                 onChange={(e) => setGlobalAreaFilter(e.target.value)}
                 className={`text-[9px] px-2 py-1.5 rounded-xl border font-black uppercase tracking-wider focus:outline-none cursor-pointer ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                  theme === 'dark' ? 'bg-indigo-950 border-white/10 text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
                 }`}
                 title="Filter by Zone"
               >
-                <option value="All Areas">🌎 ALL ZONES</option>
+                <option value="All Areas" className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>🌎 ALL ZONES</option>
                 {availableAreas.map(area => (
-                  <option key={area} value={area}>📍 {area.toUpperCase()}</option>
+                  <option key={area} value={area} className={theme === 'dark' ? 'bg-indigo-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>📍 {area.toUpperCase()}</option>
                 ))}
               </select>
               <button onClick={() => setShowAuthModal(true)}
                 className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
                 Sign In / Register
+              </button>
+              {/* Header Theme Switcher Button */}
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-white/5 border-white/10 text-amber-400 hover:bg-white/10' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm'
+                }`}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -649,6 +700,15 @@ export default function App() {
                       onSelectIssue={handleSelectIssue}
                       selectedIssueId={selectedIssueId}
                       theme={theme}
+                      currentUser={currentUser}
+                      onVoteIssue={handleVote}
+                      onLocationResolved={async (city, area) => {
+                        // Refresh state so that the newly seeded issues are fetched into frontend state
+                        await syncState();
+                        // Automatically set city and area filters to match resolved geolocation coordinates
+                        setGlobalCityFilter(city);
+                        setGlobalAreaFilter(area);
+                      }}
                     />
                   </div>
                   {/* Micro sidebar with short overview */}
@@ -995,39 +1055,44 @@ export default function App() {
       </main>
  
       {/* Footer */}
-      <footer className={`relative z-10 max-w-3xl mx-auto px-6 py-5 mt-8 mb-6 text-center text-xs rounded-2xl border backdrop-blur-md transition-all duration-300 ${
+      <footer className={`relative z-10 w-full mt-auto px-6 py-6 border-t backdrop-blur-md transition-all duration-300 ${
         theme === 'dark'
-          ? 'bg-slate-950/40 border-white/10 text-slate-300 shadow-black/20'
-          : 'bg-white/80 border-indigo-200/50 text-slate-800 shadow-indigo-100/30 shadow-md font-medium'
+          ? 'bg-slate-950/20 border-white/5 text-slate-400'
+          : 'bg-slate-50 border-indigo-100/40 text-slate-500 font-medium'
       }`}>
-        <p className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-          © 2026 Samadhan Setu Civic Platform.
-        </p>
-        <p className={`mt-1 text-[11px] ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
-          Ensuring accountability and transparency in municipal services.
-        </p>
-        <div className="mt-3.5 flex items-center justify-center gap-4 text-[11px] font-bold">
-          <button 
-            onClick={() => { setPolicyTab('privacy'); setShowPolicyModal(true); }}
-            className={`transition-colors hover:underline cursor-pointer ${
-              theme === 'dark' 
-                ? 'text-indigo-400 hover:text-indigo-300' 
-                : 'text-indigo-700 hover:text-indigo-800 font-extrabold'
-            }`}
-          >
-            Privacy Policy
-          </button>
-          <span className={`opacity-40 ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>•</span>
-          <button 
-            onClick={() => { setPolicyTab('terms'); setShowPolicyModal(true); }}
-            className={`transition-colors hover:underline cursor-pointer ${
-              theme === 'dark' 
-                ? 'text-indigo-400 hover:text-indigo-300' 
-                : 'text-indigo-700 hover:text-indigo-800 font-extrabold'
-            }`}
-          >
-            Terms of Service
-          </button>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <div className="flex flex-col md:items-start items-center gap-1">
+            <p className={`font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+              © 2026 Samadhan Setu Civic Platform.
+            </p>
+            <p className="text-[10px] opacity-75">
+              Ensuring civic accountability, decentralized verification, and automatic routing transparency.
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4 text-[11px] font-bold">
+            <button 
+              onClick={() => { setPolicyTab('privacy'); setShowPolicyModal(true); }}
+              className={`transition-colors hover:underline cursor-pointer ${
+                theme === 'dark' 
+                  ? 'text-indigo-400 hover:text-indigo-300' 
+                  : 'text-indigo-700 hover:text-indigo-800'
+              }`}
+            >
+              Privacy Policy
+            </button>
+            <span className="opacity-30">•</span>
+            <button 
+              onClick={() => { setPolicyTab('terms'); setShowPolicyModal(true); }}
+              className={`transition-colors hover:underline cursor-pointer ${
+                theme === 'dark' 
+                  ? 'text-indigo-400 hover:text-indigo-300' 
+                  : 'text-indigo-700 hover:text-indigo-800'
+              }`}
+            >
+              Terms of Service
+            </button>
+          </div>
         </div>
       </footer>
 

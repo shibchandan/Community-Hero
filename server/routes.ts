@@ -11,6 +11,7 @@ import {
   saveUser,
   getIssues,
   saveIssue,
+  deleteIssue,
   getIssueById,
   getCurrentSession,
   setCurrentSession,
@@ -1008,6 +1009,250 @@ router.get('/issues/:id', async (req, res) => {
   } catch (err) {
     console.error('Error getting specific issue:', err);
     res.status(500).json({ error: 'Failed to retrieve requested issue details.' });
+  }
+});
+
+// 6.5. Seed local issues based on user's resolved geolocation
+router.post('/issues/seed-local', async (req, res) => {
+  try {
+    const { lat, lng, city, area } = req.body;
+    if (!lat || !lng || !city) {
+      return res.status(400).json({ error: 'lat, lng, and city are required for local seeding.' });
+    }
+
+    const currentIssues = await getIssues();
+    const cityLower = city.trim().toLowerCase();
+    
+    // Check if we already have issues in this city
+    const existingCityIssues = currentIssues.filter(
+      issue => issue.location?.city?.toLowerCase() === cityLower
+    );
+
+    if (existingCityIssues.length > 0) {
+      // If we already have issues in this city, but "New Delhi" is still in the database and we are in a different city,
+      // let's still clean up "New Delhi" to satisfy the overwrite instruction!
+      if (cityLower !== 'new delhi') {
+        const defaultNewDelhiIssues = currentIssues.filter(
+          issue => issue.location?.city?.toLowerCase() === 'new delhi'
+        );
+        for (const issue of defaultNewDelhiIssues) {
+          await deleteIssue(issue.id);
+        }
+      }
+      return res.json({ message: 'City already has reported issues.', seeded: false });
+    }
+
+    // Delete any default "New Delhi" mock issues so we fully overwrite with the real-time geolocated city issues
+    if (cityLower !== 'new delhi') {
+      const defaultNewDelhiIssues = currentIssues.filter(
+        issue => issue.location?.city?.toLowerCase() === 'new delhi'
+      );
+      for (const issue of defaultNewDelhiIssues) {
+        await deleteIssue(issue.id);
+      }
+    }
+
+    // Seed 4 beautiful, realistic civic issues in the user's specific geolocated city and area
+    const localIssues: Issue[] = [
+      {
+        id: `issue_local_1_${Date.now()}`,
+        category: 'road' as const,
+        title: `Pothole Cluster on ${area || 'Main'} Sector Bypass`,
+        description: `Severe asphalt decay and a cluster of deep potholes have developed on the busy lane near the junction. This is creating a major hazard for two-wheelers and slowing down peak hour traffic.`,
+        status: 'assigned' as const,
+        location: {
+          lat: Number(lat) + 0.0034,
+          lng: Number(lng) - 0.0012,
+          address: `${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'high' as const,
+        createdAt: new Date(Date.now() - 1.5 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1515162305285-0293e4767cc2?auto=format&fit=crop&w=600&q=80',
+        department: 'Municipal Highway & Roads Division',
+        upvotes: 11,
+        downvotes: 0,
+        votedUsers: { 'user_priya': 'valid', 'user_rahul': 'valid' } as Record<string, 'valid' | 'invalid'>,
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_1_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma via Mobile Radar Grid.',
+            timestamp: new Date(Date.now() - 1.5 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: `t_local_1_2_${Date.now()}`,
+            status: 'assigned',
+            title: 'Assigned to Municipal Highway & Roads Division',
+            description: 'Department assigned by local sub-divisional officer for urgent structural patch-work.',
+            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Platform Dispatcher'
+          }
+        ],
+        slaDays: 7,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'High risk of skidding for motorbikes and slow traffic block'
+      },
+      {
+        id: `issue_local_2_${Date.now()}`,
+        category: 'garbage' as const,
+        title: `Overflowing Waste Dump & Trash Dispersion near ${area || 'Market'}`,
+        description: `The local municipal waste dump station is overflowing onto the service road. Stray animals are dispersing the trash, causing high sanitation concerns and a foul smell in the entire neighbourhood.`,
+        status: 'community_verified' as const,
+        location: {
+          lat: Number(lat) - 0.0021,
+          lng: Number(lng) + 0.0045,
+          address: `Near Block Market, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'medium' as const,
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'Sanitation & Waste Disposal Department',
+        upvotes: 18,
+        downvotes: 1,
+        votedUsers: { 'user_aarav': 'valid', 'user_rahul': 'valid' } as Record<string, 'valid' | 'invalid'>,
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_2_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          },
+          {
+            id: `t_local_2_2_${Date.now()}`,
+            status: 'community_verified',
+            title: 'Community Verified!',
+            description: 'Sufficient votes of verification achieved. Forwarded to Sanitation & Waste Disposal Department.',
+            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Samadhan Setu Community'
+          }
+        ],
+        slaDays: 3,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Sanitary hazard and blocked service lane'
+      },
+      {
+        id: `issue_local_3_${Date.now()}`,
+        category: 'streetlight' as const,
+        title: `Complete Blackout of Public Streetlights on ${area || 'Main'} Boulevard`,
+        description: `An entire row of 8-10 streetlights is fully non-functional on the main avenue. This creates absolute darkness after 6:30 PM, making the sector highly unsafe for pedestrians and commuters.`,
+        status: 'reported' as const,
+        location: {
+          lat: Number(lat) + 0.0012,
+          lng: Number(lng) + 0.0028,
+          address: `${area || 'Local Sector'} Outer Road, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'medium' as const,
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_rahul',
+        reportedByName: 'Rahul Verma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Department of Electrical & Public Lighting',
+        upvotes: 5,
+        downvotes: 0,
+        votedUsers: { 'user_priya': 'valid' } as Record<string, 'valid' | 'invalid'>,
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_3_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Rahul Verma with verified photo upload.',
+            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Rahul Verma'
+          }
+        ],
+        slaDays: 5,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Pedestrian safety and dark spot prevention'
+      },
+      {
+        id: `issue_local_4_${Date.now()}`,
+        category: 'water' as const,
+        title: `Drinking Water Main Supply Joint Pipe Burst`,
+        description: `A heavy pressure drinking water pipe has burst underground, continuously flooding the side road and wasting thousands of liters of clean drinking water. Substantial water accumulation is visible on the street.`,
+        status: 'in_progress' as const,
+        location: {
+          lat: Number(lat) - 0.0042,
+          lng: Number(lng) - 0.0031,
+          address: `Opposite Park Gate, ${area || 'Local Sector'}, ${city}`,
+          area: area || 'Central Sector',
+          city: city
+        },
+        severity: 'high' as const,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Urban Water Resources Board',
+        upvotes: 14,
+        downvotes: 0,
+        votedUsers: { 'user_priya': 'valid', 'user_rahul': 'valid' } as Record<string, 'valid' | 'invalid'>,
+        comments: [],
+        timeline: [
+          {
+            id: `t_local_4_1_${Date.now()}`,
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: `t_local_4_2_${Date.now()}`,
+            status: 'in_progress',
+            title: 'Work In Progress',
+            description: 'Water maintenance team dispatched. Water main supply shut off to replace pipeline gasket joint.',
+            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Urban Water Resources Board Engineers'
+          }
+        ],
+        slaDays: 4,
+        escalated: false,
+        escalationDate: null,
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Massive clean water wastage and street inundation'
+      }
+    ];
+
+    for (const issue of localIssues) {
+      await saveIssue(issue);
+    }
+
+    console.log(`✅ Successfully seeded local issues for ${city} (${area || ''})`);
+    res.json({ message: `Successfully seeded 4 civic issues for ${city} (${area || ''})`, seeded: true });
+  } catch (err) {
+    console.error('Failed to seed local issues:', err);
+    res.status(500).json({ error: 'Failed to seed local issues.' });
   }
 });
 

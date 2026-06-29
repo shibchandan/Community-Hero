@@ -794,11 +794,11 @@ export default function IssueReporter({
                           theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900'
                         }`}
                       >
-                        <option value="road">Road Damage</option>
-                        <option value="garbage">Garbage & Sanitation</option>
-                        <option value="water">Water Leakage</option>
-                        <option value="streetlight">Streetlight failure</option>
-                        <option value="safety">Public Safety Concern</option>
+                        <option value="road" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Road Damage</option>
+                        <option value="garbage" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Garbage & Sanitation</option>
+                        <option value="water" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Water Leakage</option>
+                        <option value="streetlight" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Streetlight failure</option>
+                        <option value="safety" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Public Safety Concern</option>
                       </select>
                     </div>
 
@@ -811,9 +811,9 @@ export default function IssueReporter({
                           theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900'
                         }`}
                       >
-                        <option value="low">Low Impact</option>
-                        <option value="medium">Medium Hazard</option>
-                        <option value="high">Critical Risk (High Danger)</option>
+                        <option value="low" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Low Impact</option>
+                        <option value="medium" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Medium Hazard</option>
+                        <option value="high" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Critical Risk (High Danger)</option>
                       </select>
                     </div>
                   </div>
@@ -1023,11 +1023,11 @@ export default function IssueReporter({
                       theme === 'dark' ? 'border-white/10 bg-slate-950 text-white' : 'border-slate-300 bg-white text-slate-900 font-medium'
                     }`}
                   >
-                    <option value="general">SLA General Escalation</option>
-                    <option value="roads">Roads & Sidewalk Repair</option>
-                    <option value="power">Street Lighting Division</option>
-                    <option value="water">Water Mains & Drainage</option>
-                    <option value="feedback">Platform Technical Feedback</option>
+                    <option value="general" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>SLA General Escalation</option>
+                    <option value="roads" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Roads & Sidewalk Repair</option>
+                    <option value="power" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Street Lighting Division</option>
+                    <option value="water" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Water Mains & Drainage</option>
+                    <option value="feedback" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>Platform Technical Feedback</option>
                   </select>
                 </div>
               </div>

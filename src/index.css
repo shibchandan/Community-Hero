@@ -262,6 +262,9 @@ html {
 }
 
 /* Children color adaptation inside popups for Light Mode */
+.theme-light .custom-leaflet-popup .text-slate-100 {
+  color: #1e293b !important;
+}
 .theme-light .custom-leaflet-popup h4.text-white {
   color: #1e293b !important;
 }

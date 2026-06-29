@@ -540,9 +540,9 @@ export default function GoogleDocsSupport({ theme, issues }: Props) {
                       : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-600'
                   }`}
                 >
-                  <option value="">-- Choose an Incident to Export --</option>
+                  <option value="" className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>-- Choose an Incident to Export --</option>
                   {issues.map(issue => (
-                    <option key={issue.id} value={issue.id}>
+                    <option key={issue.id} value={issue.id} className={theme === 'dark' ? 'bg-slate-950 text-white' : 'bg-white text-slate-800'} style={{ backgroundColor: theme === 'dark' ? '#020617' : '#ffffff', color: theme === 'dark' ? '#ffffff' : '#1e293b' }}>
                       [{issue.category.toUpperCase()}] {issue.title} ({issue.status})
                     </option>
                   ))}

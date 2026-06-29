@@ -343,6 +343,27 @@ export async function saveIssue(issue: Issue): Promise<void> {
   }
 }
 
+export async function deleteIssue(id: string): Promise<void> {
+  if (isLocalMode) {
+    const list: Issue[] = await getIssues();
+    const filtered = list.filter(i => i.id !== id);
+    writeJsonFile(issuesFile, filtered);
+    return;
+  }
+  try {
+    await db.collection('issues').doc(id).delete();
+  } catch (err: any) {
+    if (isFirestoreNotFoundError(err)) {
+      enableLocalModeFallback();
+      const list: Issue[] = await getIssues();
+      const filtered = list.filter(i => i.id !== id);
+      writeJsonFile(issuesFile, filtered);
+      return;
+    }
+    throw err;
+  }
+}
+
 export async function getIssueById(id: string): Promise<Issue | null> {
   if (isLocalMode) {
     const list = await getIssues();
