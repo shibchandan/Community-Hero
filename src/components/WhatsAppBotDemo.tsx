@@ -42,6 +42,7 @@ export function WhatsAppBotDemo({ theme }: Props) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => `demo_${Date.now()}`);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -135,13 +136,87 @@ export function WhatsAppBotDemo({ theme }: Props) {
         </button>
       </div>
 
-      {/* Info Banner */}
-      <div className={`flex items-start gap-3 p-3 rounded-xl border ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-        <Info className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
-        <p className={`text-xs ${theme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
-          This is a live demo of the WhatsApp chatbot backend. In production, connect your Twilio number webhook to{' '}
-          <code className="font-mono bg-black/20 px-1 rounded">POST /api/whatsapp/webhook</code> and citizens can use this flow on real WhatsApp.
-        </p>
+      {/* Collapsible Developer Integration Sandbox */}
+      <div className={`p-4 rounded-xl border transition-all ${
+        theme === 'dark' 
+          ? 'bg-indigo-950/10 border-indigo-500/20 hover:border-indigo-500/30' 
+          : 'bg-indigo-50/30 border-indigo-200 hover:border-indigo-300'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            <h3 className={`text-xs font-black uppercase tracking-wider ${theme === 'dark' ? 'text-indigo-300' : 'text-indigo-800'}`}>
+              🔌 Twilio Webhook & Integration Settings
+            </h3>
+          </div>
+          <button
+            onClick={() => setExpanded(expanded === 'developer-sandbox' ? null : 'developer-sandbox')}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+              expanded === 'developer-sandbox'
+                ? 'bg-indigo-500/20 text-indigo-400'
+                : theme === 'dark'
+                  ? 'bg-white/5 text-gray-300 hover:bg-white/10'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {expanded === 'developer-sandbox' ? 'Hide Setup' : 'Show Integration Guide'}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {expanded === 'developer-sandbox' && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 pt-3 border-t border-dashed border-indigo-500/15 space-y-4">
+                <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'}`}>
+                  The backend for this WhatsApp bot is fully operational and production-ready. You can connect a real WhatsApp number using Twilio's Sandbox or Business API to receive and reply to real-time citizen reports:
+                </p>
+
+                {/* Webhook Endpoint Box */}
+                <div className={`p-3 rounded-lg border ${theme === 'dark' ? 'bg-black/30 border-white/5' : 'bg-slate-100 border-slate-200'}`}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Your Real-time Webhook URL</p>
+                  <div className="flex items-center justify-between gap-3 font-mono text-xs">
+                    <span className="text-emerald-400 font-bold truncate">
+                      {window.location.origin}/api/whatsapp/webhook
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/api/whatsapp/webhook`);
+                        alert('Copied to clipboard!');
+                      }}
+                      className="shrink-0 px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-bold text-[10px] rounded transition-all cursor-pointer"
+                    >
+                      Copy URL
+                    </button>
+                  </div>
+                </div>
+
+                {/* Steps */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[
+                    { step: '1', title: 'Twilio Console', desc: 'Create a free Twilio Account and open the Twilio Sandbox for WhatsApp.' },
+                    { step: '2', title: 'Paste Webhook', desc: 'Configure the incoming message webhook and select HTTP POST with the URL above.' },
+                    { step: '3', title: 'Live Chat', desc: 'Send "join [your sandbox keyword]" to the Twilio number, then chat normally!' },
+                  ].map(s => (
+                    <div key={s.step} className={`p-3 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-white border-slate-100'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 text-xs font-black flex items-center justify-center">
+                          {s.step}
+                        </span>
+                        <h4 className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-slate-800'}`}>{s.title}</h4>
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">{s.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

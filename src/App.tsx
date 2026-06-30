@@ -93,9 +93,16 @@ export default function App() {
     saveSession(currentUser);
   }, [currentUser]);
 
-  // Persist theme
+  // Persist theme and sync HTML element classes for Tailwind dark: modifiers
   useEffect(() => {
     try { localStorage.setItem(THEME_KEY, theme); } catch { }
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   // Persist sidebar state

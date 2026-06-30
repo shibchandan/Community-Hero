@@ -126,14 +126,121 @@ export function getAllLedgerRecords(): LedgerRecord[] {
 }
 
 /**
- * Verify the integrity of the entire ledger chain.
- * Returns true if all hashes are consistent (no tampering detected).
+ * Tamper with a specific block in the ledger.
+ * This simulates a database intrusion where an unauthorized agent modifies stored records directly.
  */
-export function verifyLedgerIntegrity(): { valid: boolean; errorAt?: number } {
+export function tamperBlockInLedger(id: string, hackedTitle: string): boolean {
+  const ledger = readLedger();
+  const idx = ledger.findIndex(r => r.id === id);
+  if (idx === -1) return false;
+
+  // Modify the title field without updating the hash to break integrity
+  ledger[idx].issueTitle = hackedTitle;
+  
+  writeLedger(ledger);
+  return true;
+}
+
+/**
+ * Re-mine the entire blockchain ledger to repair and restore integrity.
+ * Demonstrates how honest network nodes recalculate proof-of-work nonces and forward-link hashes.
+ */
+export function rebuildLedgerChain(): { success: boolean; blocksRemined: number } {
+  const ledger = readLedger();
+  if (ledger.length === 0) return { success: true, blocksRemined: 0 };
+
+  let previousHash = GENESIS_HASH;
+
+  for (let i = 0; i < ledger.length; i++) {
+    const record = ledger[i];
+    record.previousHash = previousHash;
+
+    const canonicalData = {
+      issueId: record.issueId,
+      title: record.issueTitle,
+      category: record.category,
+      location: record.location,
+      resolvedAt: record.resolvedAt,
+      resolutionNotes: 'Repaired and re-certified on blockchain via mining recovery.',
+      reportedBy: 'restored_system',
+      department: record.resolvedBy,
+      previousHash,
+    };
+
+    const contentHash = computeContentHash(canonicalData);
+    const { nonce, finalHash } = simulateProofOfWork(contentHash);
+
+    record.contentHash = finalHash; // Save the newly found valid hash
+    record.nonce = nonce;
+    previousHash = finalHash;
+  }
+
+  writeLedger(ledger);
+  return { success: true, blocksRemined: ledger.length };
+}
+
+/**
+ * Mine a custom block onto the blockchain ledger.
+ */
+export function mineCustomBlockOnLedger(
+  title: string,
+  category: string,
+  resolvedBy: string,
+  location: string
+): LedgerRecord {
+  const ledger = readLedger();
+  const previousRecord = ledger[ledger.length - 1];
+  const previousHash = previousRecord ? previousRecord.contentHash : GENESIS_HASH;
+
+  const canonicalData = {
+    issueId: `CUSTOM-${Date.now()}`,
+    title,
+    category,
+    location,
+    resolvedAt: new Date().toISOString(),
+    resolutionNotes: 'Manually logged and cryptographically verified on public ledger.',
+    reportedBy: 'public_citizen',
+    department: resolvedBy,
+    previousHash,
+  };
+
+  const contentHash = computeContentHash(canonicalData);
+  const { nonce, finalHash } = simulateProofOfWork(contentHash);
+
+  const record: LedgerRecord = {
+    id: `LEDGER-${Date.now()}`,
+    issueId: canonicalData.issueId,
+    issueTitle: title,
+    resolvedBy,
+    resolvedAt: canonicalData.resolvedAt,
+    category,
+    location,
+    contentHash: finalHash,
+    previousHash,
+    nonce,
+    blockNumber: (previousRecord?.blockNumber ?? 0) + 1,
+    network: 'polygon-testnet',
+    txSimulated: `0x${crypto.randomBytes(32).toString('hex')}`,
+  };
+
+  ledger.push(record);
+  writeLedger(ledger);
+  return record;
+}
+
+/**
+ * Verify the integrity of the entire ledger chain.
+ * Checks if previous hashes align sequentially.
+ */
+export function verifyLedgerIntegrity(): { valid: boolean; errorAt?: number; reason?: string } {
   const ledger = readLedger();
   for (let i = 1; i < ledger.length; i++) {
     if (ledger[i].previousHash !== ledger[i - 1].contentHash) {
-      return { valid: false, errorAt: i };
+      return { 
+        valid: false, 
+        errorAt: ledger[i].blockNumber,
+        reason: `Hash mismatch: Block #${ledger[i].blockNumber}'s previousHash does not match Block #${ledger[i-1].blockNumber}'s contentHash!` 
+      };
     }
   }
   return { valid: true };

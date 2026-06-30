@@ -48,6 +48,10 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
   const [realEmailAvailable, setRealEmailAvailable] = useState<boolean | null>(null);
   const isSubmittingRef = useRef(false);
 
+  // Registration OTP verification states
+  const [registerOtpSent, setRegisterOtpSent] = useState(false);
+  const [registerOtpCode, setRegisterOtpCode] = useState('');
+
   // Fetch email service availability
   useEffect(() => {
     fetch('/api/auth/email-config-status')
@@ -141,6 +145,38 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
       setError('Please enter your full name to register.');
       return;
     }
+
+    if (!isLogin && !registerOtpSent) {
+      // Step 1: Dispatch Verification Code
+      isSubmittingRef.current = true;
+      setLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      try {
+        const res = await fetch('/api/auth/send-register-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), name: displayName.trim() }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || 'Failed to dispatch email verification code. Please try again.');
+          return;
+        }
+
+        setRegisterOtpSent(true);
+        setSuccessMessage(data.message || '🔢 A 6-digit email verification code has been sent. Please check your inbox.');
+      } catch (err: any) {
+        console.error('Send Register OTP Error:', err);
+        setError('🌐 Network error — could not reach the server to send verification code.');
+      } finally {
+        setLoading(false);
+        isSubmittingRef.current = false;
+      }
+      return;
+    }
     
     isSubmittingRef.current = true;
     setLoading(true);
@@ -156,7 +192,8 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
             password, 
             name: displayName.trim(),
             securityQuestion: 'Omitted',
-            securityAnswer: 'omitted'
+            securityAnswer: 'omitted',
+            code: registerOtpCode.trim()
           };
 
       const res = await fetch(endpoint, {
@@ -292,7 +329,7 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
           <div className={`flex rounded-xl p-1 mb-6 border ${isLightTheme ? 'bg-slate-100 border-slate-200' : 'bg-white/5 border-white/10'}`}>
             <button
               type="button"
-              onClick={() => { setIsLogin(true); setError(null); setSuccessMessage(null); }}
+              onClick={() => { setIsLogin(true); setError(null); setSuccessMessage(null); setRegisterOtpSent(false); setRegisterOtpCode(''); }}
               className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 isLogin 
                   ? 'bg-indigo-600 text-white shadow-md' 
@@ -303,7 +340,7 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
             </button>
             <button
               type="button"
-              onClick={() => { setIsLogin(false); setError(null); setSuccessMessage(null); }}
+              onClick={() => { setIsLogin(false); setError(null); setSuccessMessage(null); setRegisterOtpSent(false); setRegisterOtpCode(''); }}
               className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 !isLogin 
                   ? 'bg-indigo-600 text-white shadow-md' 
@@ -499,10 +536,11 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
                   <input
                     type="text"
                     required
+                    disabled={registerOtpSent}
                     placeholder="Aarav Sharma"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className={`${inputClassesBase} pr-4`}
+                    className={`${inputClassesBase} pr-4 ${registerOtpSent ? 'opacity-60 cursor-not-allowed' : ''}`}
                   />
                 </div>
               </div>
@@ -519,10 +557,11 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
                 <input
                   type="email"
                   required
+                  disabled={!isLogin && registerOtpSent}
                   placeholder="sarah.j@civic.org"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`${inputClassesBase} pr-4`}
+                  className={`${inputClassesBase} pr-4 ${(!isLogin && registerOtpSent) ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
               </div>
             </div>
@@ -538,17 +577,19 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
                 <input
                   type={showPassword ? "text" : "password"}
                   required
+                  disabled={!isLogin && registerOtpSent}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputClassesBase} pr-10`}
+                  className={`${inputClassesBase} pr-10 ${(!isLogin && registerOtpSent) ? 'opacity-60 cursor-not-allowed' : ''}`}
                 />
                 <button
                   type="button"
+                  disabled={!isLogin && registerOtpSent}
                   onClick={() => setShowPassword(!showPassword)}
                   className={`absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors cursor-pointer ${
                     isLightTheme ? 'text-slate-400 hover:text-slate-600' : 'text-gray-500 hover:text-gray-300'
-                  }`}
+                  } ${(!isLogin && registerOtpSent) ? 'opacity-30 cursor-not-allowed' : ''}`}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -573,6 +614,43 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
               )}
             </div>
 
+            {!isLogin && registerOtpSent && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-2 pt-1 border-t border-dashed border-indigo-500/10"
+              >
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
+                  Verification Code (OTP)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <KeyRound className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="6-Digit OTP Code (e.g. 123456)"
+                    value={registerOtpCode}
+                    onChange={(e) => setRegisterOtpCode(e.target.value)}
+                    className={`${inputClassesBase} pr-4 font-mono font-bold tracking-wider`}
+                    maxLength={6}
+                  />
+                </div>
+                <div className="flex justify-end mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setRegisterOtpSent(false); setSuccessMessage(null); setError(null); }}
+                    className={`text-[11px] font-bold flex items-center gap-1 hover:underline cursor-pointer transition-all ${
+                      isLightTheme ? 'text-indigo-600 hover:text-indigo-800' : 'text-indigo-400 hover:text-indigo-300'
+                    }`}
+                  >
+                    ✏️ Edit details or resend code
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -582,7 +660,13 @@ export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: Auth
                 <Loader2 className="w-5 h-5 animate-spin text-white" />
               ) : (
                 <>
-                  <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                  <span>
+                    {isLogin 
+                      ? 'Sign In' 
+                      : registerOtpSent 
+                        ? 'Verify & Create Account' 
+                        : 'Send Verification Code'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
