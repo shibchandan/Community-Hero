@@ -26,10 +26,11 @@ import ContactAdminModal from './components/ContactAdminModal';
 import { EmergencyBroadcastBanner } from './components/EmergencyBroadcastBanner';
 import { BlockchainLedger } from './components/BlockchainLedger';
 import { WhatsAppBotDemo } from './components/WhatsAppBotDemo';
+import IotDashboard from './components/IotDashboard';
 import { 
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, RefreshCw, Layers, Loader2, Menu, X, Sun, Moon,
-  LifeBuoy, HelpCircle, Send, CheckCircle
+  LifeBuoy, HelpCircle, Send, CheckCircle, Cpu
 } from 'lucide-react';
 
 // --- Session Persistence Helpers ---
@@ -62,7 +63,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(loadStoredSession);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [selectedIssueId, setSelectedIssueId] = useState<string | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile' | 'ledger' | 'whatsapp'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'analytics' | 'profile' | 'ledger' | 'whatsapp' | 'iot'>('map');
   const [activeFeedTab, setActiveFeedTab] = useState<'all' | 'unresolved' | 'resolved' | 'escalated'>('unresolved');
   const [theme, setTheme] = useState<'dark' | 'light'>(loadStoredTheme);
   const [loading, setLoading] = useState(true);
@@ -600,7 +601,7 @@ export default function App() {
                 </div>
 
                 {/* Desktop-only view titles */}
-                <div className="hidden lg:flex items-center gap-3">
+                 <div className="hidden lg:flex items-center gap-3">
                   <div className="w-9 h-9 bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-500 dark:text-indigo-400">
                     {activeTab === 'map' && <Map className="w-5 h-5" />}
                     {activeTab === 'feed' && <FileText className="w-5 h-5" />}
@@ -611,6 +612,7 @@ export default function App() {
                     {activeTab === 'analytics' && <Layers className="w-5 h-5" />}
                     {activeTab === 'ledger' && <Sparkles className="w-5 h-5" />}
                     {activeTab === 'whatsapp' && <Sparkles className="w-5 h-5" />}
+                    {activeTab === 'iot' && <Cpu className="w-5 h-5" />}
                     {activeTab === 'profile' && <UserCheck className="w-5 h-5" />}
                 </div>
                   <div>
@@ -624,6 +626,7 @@ export default function App() {
                       {activeTab === 'analytics' && 'Admin Analytical Control'}
                       {activeTab === 'ledger' && 'Decentralized Proof Ledger'}
                       {activeTab === 'whatsapp' && 'WhatsApp Citizen Bot'}
+                      {activeTab === 'iot' && 'Smart City IoT Sentry'}
                       {activeTab === 'profile' && 'My Citizen Profile'}
                     </h1>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">
@@ -636,6 +639,7 @@ export default function App() {
                       {activeTab === 'analytics' && 'Advanced GIS clustering, duplication scanner, and security controls.'}
                       {activeTab === 'ledger' && 'Cryptographic transparency verification ledger for SLA milestones.'}
                       {activeTab === 'whatsapp' && 'Automated WhatsApp-connected ticketing gateway and citizen feedback.'}
+                      {activeTab === 'iot' && 'Real-time smart city sensors, automated threshold alerts, and instant municipal routing.'}
                       {activeTab === 'profile' && 'Review your reports, earned points, and active municipal badge ranks.'}
                     </p>
                   </div>
@@ -1152,6 +1156,24 @@ export default function App() {
                   className="w-full"
                 >
                   <WhatsAppBotDemo theme={theme} />
+                </motion.div>
+              )}
+
+              {/* 6.e Smart IoT Sentry Tab */}
+              {activeTab === 'iot' && (
+                <motion.div
+                  key="iot"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <IotDashboard 
+                    issues={issues} 
+                    onRefreshIssues={async () => { await syncState(); }} 
+                    theme={theme} 
+                  />
                 </motion.div>
               )}
 

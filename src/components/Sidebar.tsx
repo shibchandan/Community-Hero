@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Map, FileText, Sparkles, Shield, Trophy, BarChart3,
   UserCheck, ChevronLeft, ChevronRight, Layers, LogOut,
-  LogIn, Sun, Moon, RefreshCw, X, TrendingUp, Link2, MessageCircle
+  LogIn, Sun, Moon, RefreshCw, X, TrendingUp, Link2, MessageCircle, Cpu
 } from 'lucide-react';
 import { User } from '../types';
 import { NotificationBell } from './NotificationDrawer';
@@ -15,7 +15,7 @@ import { Issue } from '../types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp';
+type TabId = 'map' | 'feed' | 'report' | 'authority' | 'leaderboard' | 'dashboard' | 'profile' | 'analytics' | 'ledger' | 'whatsapp' | 'iot';
 
 interface SidebarProps {
   activeTab: TabId;
@@ -45,6 +45,7 @@ const NAV_ITEMS = [
   { id: 'analytics'  as TabId, label: 'Admin Analytics',   icon: TrendingUp,     group: 'tools' },
   { id: 'ledger'     as TabId, label: 'Proof Ledger',       icon: Link2,          group: 'advanced' },
   { id: 'whatsapp'   as TabId, label: 'WhatsApp Bot',       icon: MessageCircle,  group: 'advanced' },
+  { id: 'iot'        as TabId, label: 'Smart IoT Sentry',   icon: Cpu,            group: 'advanced' },
 ];
 
 // ── NavButton ─────────────────────────────────────────────────────────────────
