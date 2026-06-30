@@ -2140,6 +2140,31 @@ router.post('/contact', actionLimiter, async (req, res) => {
     const session = await getCurrentUserSession(req);
     auditLog('CONTACT_ADMIN_CREATED', session?.id || 'anonymous', { subject: cleanSubject, category: cleanCategory }, req);
 
+    // Send a confirmation email to the user via Brevo
+    const emailSubject = `[CivicHero Support] Ticket Received: ${cleanSubject}`;
+    const emailText = `Hello ${cleanName},\n\nThank you for reaching out to the CivicHero administration team.\n\nWe have successfully received your message in the "${cleanCategory.toUpperCase()}" category.\n\nTicket Details:\n- Ticket ID: ${newMsg.id}\n- Subject: ${cleanSubject}\n- Message:\n${cleanMessage}\n\nOur team will review your message and reply as soon as possible.\n\nBest regards,\nThe CivicHero Admin Team`;
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #4f46e5; margin-top: 0; font-family: 'Inter', sans-serif;">Ticket Received Successfully!</h2>
+        <p>Hello <strong>${cleanName}</strong>,</p>
+        <p>Thank you for reaching out to the CivicHero administration team. We have received your message regarding <strong>${cleanCategory.toUpperCase()}</strong>.</p>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #4f46e5;">
+          <p style="margin: 0 0 8px 0;"><strong>Ticket ID:</strong> ${newMsg.id}</p>
+          <p style="margin: 0 0 8px 0;"><strong>Subject:</strong> ${cleanSubject}</p>
+          <p style="margin: 0;"><strong>Message:</strong></p>
+          <p style="margin: 5px 0 0 0; font-style: italic; color: #475569;">"${cleanMessage}"</p>
+        </div>
+        <p>Our administration team will review your request and get back to you shortly.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #64748b; text-align: center;">This is an automated notification. Please do not reply directly to this email.</p>
+      </div>
+    `;
+
+    sendEmailViaBrevo(cleanEmail, emailSubject, emailText, emailHtml).catch(err => {
+      console.error('Error sending contact confirmation email via Brevo:', err);
+    });
+
     res.status(201).json({ success: true, message: 'Message successfully sent to the Admin!', ticket: newMsg });
   } catch (err) {
     console.error('Failed to save contact message:', err);
@@ -2173,6 +2198,36 @@ router.post('/contact/:id/reply', async (req, res) => {
 
     await saveContactMessage(found);
     auditLog('CONTACT_ADMIN_REPLIED', session.id, { ticketId: req.params.id }, req);
+
+    // Send the reply notification email to the citizen via Brevo
+    const replySubject = `[CivicHero Support] Reply to your ticket: ${found.subject}`;
+    const replyTextBody = `Hello ${found.name},\n\nAn administrator has replied to your support ticket (ID: ${found.id}).\n\nOriginal Subject: ${found.subject}\nOriginal Message:\n"${found.message}"\n\nAdministrator Reply:\n${cleanReplyText}\n\nThank you for using CivicHero.\n\nBest regards,\nThe CivicHero Admin Team`;
+    
+    const replyHtmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #4f46e5; margin-top: 0; font-family: 'Inter', sans-serif;">New Admin Reply</h2>
+        <p>Hello <strong>${found.name}</strong>,</p>
+        <p>An administrator has replied to your support ticket regarding <strong>${(found.category || 'SUPPORT').toUpperCase()}</strong>.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #94a3b8;">
+          <p style="margin: 0 0 5px 0; font-size: 13px; color: #64748b;"><strong>Your Original Message:</strong></p>
+          <p style="margin: 0; font-style: italic; color: #475569;">"${found.message}"</p>
+        </div>
+
+        <div style="background-color: #f5f3ff; padding: 15px; border-radius: 6px; margin: 15px 0; border-left: 4px solid #7c3aed;">
+          <p style="margin: 0 0 5px 0; font-size: 13px; color: #7c3aed;"><strong>Administrator Reply:</strong></p>
+          <p style="margin: 0; color: #1e1b4b; white-space: pre-line;">${cleanReplyText}</p>
+        </div>
+
+        <p style="font-size: 13px; color: #475569; margin-top: 20px;">Ticket Reference ID: <code>${found.id}</code></p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #64748b; text-align: center;">This is an automated notification. Please do not reply directly to this email.</p>
+      </div>
+    `;
+
+    sendEmailViaBrevo(found.email, replySubject, replyTextBody, replyHtmlBody).catch(err => {
+      console.error('Error sending contact reply email via Brevo:', err);
+    });
 
     res.json({ success: true, message: 'Reply sent successfully!', ticket: found });
   } catch (err) {

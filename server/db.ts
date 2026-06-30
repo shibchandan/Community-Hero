@@ -83,24 +83,29 @@ if (!isLocalMode) {
   }
 }
 
-// Helper to detect if gRPC error is NOT_FOUND (indicating database is not found or not initialized)
+// Helper to detect if gRPC error is NOT_FOUND or RESOURCE_EXHAUSTED (indicating database is not found, not initialized, or daily quota is exceeded)
 function isFirestoreNotFoundError(err: any): boolean {
   const msg = err?.message || '';
   const code = err?.code;
-  return code === 5 || 
+  return code === 5 || // NOT_FOUND
+         code === 8 || // RESOURCE_EXHAUSTED
          msg.includes('NOT_FOUND') || 
          msg.includes('Database') || 
          msg.includes('not found') ||
          msg.includes('5 NOT_FOUND') ||
-         msg.includes('does not exist');
+         msg.includes('does not exist') ||
+         msg.includes('RESOURCE_EXHAUSTED') ||
+         msg.includes('Quota exceeded') ||
+         msg.includes('8 RESOURCE_EXHAUSTED') ||
+         msg.includes('limit') ||
+         msg.includes('exhausted');
 }
 
 // Helper to dynamically toggle local mode fallback
 function enableLocalModeFallback() {
   if (!isLocalMode) {
-    console.warn("⚠️ Firestore database 'default' was not found or is not initialized in your Firebase Project.");
-    console.warn("⚠️ Falling back to local JSON file storage so that the app remains fully functional.");
-    console.warn("👉 To use Firestore, make sure to click 'Create Database' in the Firestore tab of your Firebase Console.");
+    console.warn("⚠️ Firestore database is offline, not initialized, or daily quota has been exceeded (RESOURCE_EXHAUSTED).");
+    console.warn("⚠️ Falling back to local JSON file storage so that the app remains 100% functional and responsive.");
     isLocalMode = true;
   }
 }
