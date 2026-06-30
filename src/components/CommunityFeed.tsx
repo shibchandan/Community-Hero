@@ -22,6 +22,7 @@ interface CommunityFeedProps {
   onVote: (issueId: string, voteType: 'valid' | 'invalid') => void;
   onAddComment: (issueId: string, commentText: string) => void;
   currentUserRole: 'citizen' | 'authority';
+  currentUser?: any;
   theme?: 'dark' | 'light';
   activeSubTab?: 'all' | 'unresolved' | 'resolved' | 'escalated';
   onSubTabChange?: (tab: 'all' | 'unresolved' | 'resolved' | 'escalated') => void;
@@ -206,6 +207,7 @@ export default function CommunityFeed({
   onVote, 
   onAddComment,
   currentUserRole,
+  currentUser,
   theme = 'dark',
   activeSubTab,
   onSubTabChange
@@ -272,6 +274,81 @@ export default function CommunityFeed({
   const [typedMessage, setTypedMessage] = useState('');
   const [typingUser, setTypingUser] = useState<string | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // ── Room Creation & Joining States ──────────────────────────────────────────
+  const [roomDescriptions, setRoomDescriptions] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem('civic_room_descriptions');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {
+      '#general-discussions': 'Local news & weather',
+      '#emergency-coordination': 'Precautions & response',
+      '#volunteer-initiatives': 'Cleanup & plantations'
+    };
+  });
+
+  // Save room descriptions to localStorage
+  useEffect(() => {
+    localStorage.setItem('civic_room_descriptions', JSON.stringify(roomDescriptions));
+  }, [roomDescriptions]);
+
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomDesc, setNewRoomDesc] = useState('');
+
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [joiningRoomSearch, setJoiningRoomSearch] = useState('');
+
+  const ALL_DISCOVERABLE_ROOMS = useMemo(() => [
+    { name: '#clean-energy-forum', description: 'Solar & wind power local talks' },
+    { name: '#local-traffic-updates', description: 'Road blocks and bypass info' },
+    { name: '#waste-management-alerts', description: 'Garbage truck schedules & bin reporting' },
+    { name: '#stray-animal-care', description: 'Stray adoption & vet drives' },
+    { name: '#citizen-education-debate', description: 'Local schools & library facilities' }
+  ], []);
+
+  // Filter list of available public rooms the user hasn't joined yet
+  const joinablePublicRooms = useMemo(() => {
+    const joinedSet = new Set(Object.keys(chatMessages));
+    return ALL_DISCOVERABLE_ROOMS.filter(r => !joinedSet.has(r.name));
+  }, [chatMessages, ALL_DISCOVERABLE_ROOMS]);
+
+  // Memoized list of room citizens (including logged-in user and Samadhan AI bot)
+  const activeChannelCitizens = useMemo(() => {
+    const list = [...CHAT_USERS];
+    const uName = currentUser?.name || 'shíbu';
+    const uRole = currentUser?.role || 'citizen';
+
+    // Verify if there is already a user with this name
+    const exists = list.some(u => u.name.toLowerCase() === uName.toLowerCase());
+
+    if (!exists) {
+      list.push({
+        name: uName,
+        role: uRole,
+        status: 'online',
+        avatarColor: 'bg-violet-600'
+      });
+    } else {
+      // Set status to online for matching name
+      for (const u of list) {
+        if (u.name.toLowerCase() === uName.toLowerCase()) {
+          u.status = 'online';
+        }
+      }
+    }
+
+    // Unshift the Samadhan AI Bot to the top of the room's citizen list
+    list.unshift({
+      name: 'Samadhan AI',
+      role: 'assistant' as any,
+      status: 'online',
+      avatarColor: 'bg-indigo-600'
+    });
+
+    return list;
+  }, [currentUser]);
 
   // Save chat to localStorage
   useEffect(() => {
@@ -473,6 +550,74 @@ export default function CommunityFeed({
     });
   }, [boardPosts, boardTagFilter, boardSearchQuery]);
 
+  // ── Room Creation & Joining Handlers ─────────────────────────────────────────
+  const handleCreateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) return;
+
+    let cleanName = newRoomName.toLowerCase().replace(/[^a-z0-9-]/g, '').trim();
+    if (!cleanName.startsWith('#')) {
+      cleanName = '#' + cleanName;
+    }
+    
+    if (chatMessages[cleanName]) {
+      alert("A room with this name already exists!");
+      return;
+    }
+
+    const initialWelcomeMessage: ChatMessage = {
+      id: `msg-welcome-${Date.now()}`,
+      senderName: 'Samadhan AI',
+      senderRole: 'assistant' as any,
+      text: `Welcome to the new #${cleanName.replace('#', '')} civic room! This room was created by ${currentUser?.name || 'a citizen'} to discuss: ${newRoomDesc || 'no description provided'}.`,
+      timestamp: new Date().toISOString()
+    };
+
+    setChatMessages(prev => ({
+      ...prev,
+      [cleanName]: [initialWelcomeMessage]
+    }));
+
+    setRoomDescriptions(prev => ({
+      ...prev,
+      [cleanName]: newRoomDesc.trim() || 'Custom citizen room'
+    }));
+
+    setActiveChannel(cleanName);
+    setIsCreatingRoom(false);
+    setNewRoomName('');
+    setNewRoomDesc('');
+  };
+
+  const handleJoinRoom = (roomName: string, desc: string) => {
+    if (chatMessages[roomName]) {
+      setActiveChannel(roomName);
+      setIsJoiningRoom(false);
+      return;
+    }
+
+    const initialWelcomeMessage: ChatMessage = {
+      id: `msg-welcome-${Date.now()}`,
+      senderName: 'Samadhan AI',
+      senderRole: 'assistant' as any,
+      text: `Welcome to #${roomName.replace('#', '')}! You have successfully joined the room.`,
+      timestamp: new Date().toISOString()
+    };
+
+    setChatMessages(prev => ({
+      ...prev,
+      [roomName]: [initialWelcomeMessage]
+    }));
+
+    setRoomDescriptions(prev => ({
+      ...prev,
+      [roomName]: desc
+    }));
+
+    setActiveChannel(roomName);
+    setIsJoiningRoom(false);
+  };
+
   // ── Chat Handlers ───────────────────────────────────────────────────────────
   const handleSendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -480,7 +625,7 @@ export default function CommunityFeed({
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
-      senderName: currentUserRole === 'authority' ? 'Vikram Sharma' : 'You (Citizen)',
+      senderName: currentUser?.name || (currentUserRole === 'authority' ? 'Vikram Sharma' : 'You (Citizen)'),
       senderRole: currentUserRole,
       text: typedMessage,
       timestamp: new Date().toISOString()
@@ -496,18 +641,30 @@ export default function CommunityFeed({
     const sentText = typedMessage;
     setTypedMessage('');
 
-    // Trigger Typing Simulation Response after a short delay
-    const typingDelay = 1200;
-    setTimeout(() => {
-      // Pick a random online participant
-      const responseCandidates = CHAT_USERS.filter(u => u.status === 'online' && u.name !== 'Vikram Sharma');
+    // Trigger standard citizen chat simulation
+    const triggerStandardCitizenSimulation = (inputText: string) => {
+      // Pick a random online participant from CHAT_USERS (not Vikram Sharma or the current user)
+      const responseCandidates = CHAT_USERS.filter(u => u.status === 'online' && u.name !== 'Vikram Sharma' && u.name.toLowerCase() !== (currentUser?.name || '').toLowerCase());
       const randomParticipant = responseCandidates[Math.floor(Math.random() * responseCandidates.length)] || CHAT_USERS[1];
       
       setTypingUser(randomParticipant.name);
 
       setTimeout(() => {
-        let replyText = 'That is a very interesting point! Let\'s discuss this at our next local assembly meeting.';
-        const lowerMsg = sentText.toLowerCase();
+        const defaultCivicReplies = [
+          "That sounds like a great idea. Let's make sure we log this properly on the radar.",
+          "I agree! Improving our local ward coordination should be our top priority.",
+          "Is there any way I can help support this effort? Let me know if you need assistance.",
+          "Good point. I've noticed this issue as well during my morning walks.",
+          "Let's post this on the community notice board too so other residents can see.",
+          "Thank you for sharing this update. It's really helpful to know what's happening.",
+          "We should raise this with the local Resident Welfare Association (RWA) next weekend.",
+          "Glad to see everyone actively coordinating on these neighborhood matters here!",
+          "Yes! This area really needs some active volunteer attention.",
+          "I will look out for municipal work crews today and update here if I spot any."
+        ];
+        
+        let replyText = defaultCivicReplies[Math.floor(Math.random() * defaultCivicReplies.length)];
+        const lowerMsg = inputText.toLowerCase();
 
         if (lowerMsg.includes('hello') || lowerMsg.includes('hi') || lowerMsg.includes('hey')) {
           replyText = `Hello! Glad to see you active in ${activeChannel}. How is everything in your sector today?`;
@@ -535,8 +692,53 @@ export default function CommunityFeed({
         }));
         setTypingUser(null);
       }, 1500);
+    };
 
-    }, typingDelay);
+    // Trigger AI Chatbot Evaluation after a brief delay
+    setTimeout(() => {
+      setTypingUser('Samadhan AI');
+
+      fetch('/api/chat/gemini-bot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages: [...currentChannelMsgs, userMsg],
+          channel: activeChannel
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.shouldReply && data.text) {
+          // AI Bot decided to reply!
+          setTimeout(() => {
+            const botMsg: ChatMessage = {
+              id: `msg-bot-${Date.now()}`,
+              senderName: 'Samadhan AI',
+              senderRole: 'assistant' as any,
+              text: data.text,
+              timestamp: new Date().toISOString()
+            };
+
+            setChatMessages(prev => ({
+              ...prev,
+              [activeChannel]: [...(prev[activeChannel] || []), botMsg]
+            }));
+            setTypingUser(null);
+          }, 800);
+        } else {
+          // AI Bot decided to stay silent; let a citizen chime in instead!
+          setTypingUser(null);
+          triggerStandardCitizenSimulation(sentText);
+        }
+      })
+      .catch(err => {
+        console.error('Error contacting Gemini chatbot API:', err);
+        setTypingUser(null);
+        triggerStandardCitizenSimulation(sentText);
+      });
+    }, 1200);
   };
 
   return (
@@ -1355,16 +1557,27 @@ export default function CommunityFeed({
             <div className="p-3 space-y-4">
               <div className="flex items-center justify-between">
                 <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Civic Rooms</span>
-                <Users className="w-3.5 h-3.5 text-indigo-500" />
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={() => setIsJoiningRoom(true)}
+                    title="Join Public Room"
+                    className="p-1 rounded-lg hover:bg-indigo-500/10 dark:hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={() => setIsCreatingRoom(true)}
+                    title="Create Room"
+                    className="p-1 rounded-lg hover:bg-indigo-500/10 dark:hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 {Object.keys(chatMessages).map(ch => {
                   const isActive = activeChannel === ch;
-                  const descMap: Record<string, string> = {
-                    '#general-discussions': 'Local news & weather',
-                    '#emergency-coordination': 'Precautions & response',
-                    '#volunteer-initiatives': 'Cleanup & plantations'
-                  };
+                  const desc = roomDescriptions[ch] || 'Custom citizen room';
 
                   return (
                     <button
@@ -1378,13 +1591,13 @@ export default function CommunityFeed({
                             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                       }`}
                     >
-                      <div className="flex flex-col truncate">
+                      <div className="flex flex-col truncate w-full">
                         <span className="text-xs font-bold truncate flex items-center gap-1.5">
                           <Hash className="w-3.5 h-3.5 shrink-0" />
                           {ch.replace('#', '')}
                         </span>
                         <span className={`text-[9px] truncate mt-0.5 ${isActive ? 'text-indigo-100' : 'text-slate-500'}`}>
-                          {descMap[ch]}
+                          {desc}
                         </span>
                       </div>
                     </button>
@@ -1395,11 +1608,11 @@ export default function CommunityFeed({
 
             {/* Current user mini card */}
             <div className={`p-3.5 border-t flex items-center gap-2.5 ${theme === 'dark' ? 'border-white/10 bg-slate-950/45' : 'border-slate-200 bg-white'}`}>
-              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                Y
+              <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                {(currentUser?.name || 'You').charAt(0).toUpperCase()}
               </div>
               <div className="truncate">
-                <p className="text-xs font-bold truncate">You (Citizen)</p>
+                <p className="text-xs font-bold truncate">{currentUser?.name || 'You (Citizen)'}</p>
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-[9px] text-emerald-500 font-extrabold uppercase tracking-wider">Online Lounge</span>
@@ -1411,7 +1624,7 @@ export default function CommunityFeed({
           {/* Chat Center Pane: Message Log & Input */}
           <div className="col-span-1 lg:col-span-2 flex flex-col justify-between h-full relative bg-transparent min-w-0">
             {/* Mobile Channel Tabs selector */}
-            <div className={`lg:hidden flex gap-2 p-2 overflow-x-auto border-b shrink-0`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className={`lg:hidden flex items-center gap-2 p-2 overflow-x-auto border-b shrink-0`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {Object.keys(chatMessages).map(ch => {
                 const isActive = activeChannel === ch;
                 return (
@@ -1430,6 +1643,20 @@ export default function CommunityFeed({
                   </button>
                 );
               })}
+              <button
+                onClick={() => setIsJoiningRoom(true)}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20"
+                title="Join Public Room"
+              >
+                + Join Room
+              </button>
+              <button
+                onClick={() => setIsCreatingRoom(true)}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/20"
+                title="Create Custom Room"
+              >
+                + Create Room
+              </button>
             </div>
 
             {/* Channel Title */}
@@ -1538,18 +1765,18 @@ export default function CommunityFeed({
           }`}>
             <div className="flex items-center justify-between">
               <span className={`text-[10px] font-black uppercase tracking-widest ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>Room Citizens</span>
-              <span className="text-[10px] font-bold text-indigo-500">6 Members</span>
+              <span className="text-[10px] font-bold text-indigo-500">{activeChannelCitizens.length} Members</span>
             </div>
             
             <div className="space-y-2.5 flex-1 overflow-y-auto">
-              {CHAT_USERS.map(user => {
+              {activeChannelCitizens.map(user => {
                 const isOnline = user.status === 'online';
                 const isAway = user.status === 'away';
 
                 return (
-                  <div key={user.name} className="flex items-center justify-between text-xs">
+                  <div key={user.name} className="flex items-center justify-between text-xs animate-fade-in">
                     <div className="flex items-center gap-2">
-                      <div className={`w-6.5 h-6.5 rounded-full ${user.avatarColor} text-white flex items-center justify-center font-bold text-[10px]`}>
+                      <div className={`w-6.5 h-6.5 rounded-full ${user.avatarColor || 'bg-indigo-500'} text-white flex items-center justify-center font-bold text-[10px]`}>
                         {user.name.charAt(0)}
                       </div>
                       <div>
@@ -1575,6 +1802,213 @@ export default function CommunityFeed({
               💡 <span className="font-bold">Pro-tip:</span> Ask about cleanups, power, or flooding to trigger smart citizen coordination!
             </div>
           </div>
+
+          {/* Create Room Modal */}
+          <AnimatePresence>
+            {isCreatingRoom && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, y: 15 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 15 }}
+                  className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl relative ${
+                    theme === 'dark' ? 'bg-slate-905 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+                  }`}
+                  style={{ backgroundColor: theme === 'dark' ? '#111827' : '#ffffff' }}
+                >
+                  <button
+                    onClick={() => setIsCreatingRoom(false)}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-slate-500 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl">
+                      <Hash className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base">Create Civic Room</h3>
+                      <p className="text-xs text-slate-400">Launch a new public room for neighborhood coordination</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleCreateRoom} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Room Name</label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-2 text-slate-500 font-bold text-sm">#</span>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. ward-12-cleanups"
+                          value={newRoomName}
+                          onChange={(e) => setNewRoomName(e.target.value)}
+                          className={`w-full pl-8 pr-4 py-2 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                            theme === 'dark' ? 'bg-slate-950/50 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Topic / Description</label>
+                      <textarea
+                        rows={3}
+                        required
+                        placeholder="Describe what citizens should coordinate or talk about in this room..."
+                        value={newRoomDesc}
+                        onChange={(e) => setNewRoomDesc(e.target.value)}
+                        className={`w-full px-4 py-2 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none ${
+                          theme === 'dark' ? 'bg-slate-950/50 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsCreatingRoom(false)}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+                          theme === 'dark' ? 'border-white/10 hover:bg-white/5 text-slate-300' : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all cursor-pointer shadow-lg shadow-indigo-600/20"
+                      >
+                        Create & Join
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Join Room Modal */}
+          <AnimatePresence>
+            {isJoiningRoom && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, y: 15 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95, y: 15 }}
+                  className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl relative ${
+                    theme === 'dark' ? 'bg-slate-905 border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
+                  }`}
+                  style={{ backgroundColor: theme === 'dark' ? '#111827' : '#ffffff' }}
+                >
+                  <button
+                    onClick={() => setIsJoiningRoom(false)}
+                    className="absolute top-4 right-4 p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-slate-500 transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-2xl">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base">Join Public Room</h3>
+                      <p className="text-xs text-slate-400">Discover and join other neighborhood discussion rooms</p>
+                    </div>
+                  </div>
+
+                  {/* Dynamic room filter / search */}
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-3 text-slate-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search or enter custom room name..."
+                        value={joiningRoomSearch}
+                        onChange={(e) => setJoiningRoomSearch(e.target.value)}
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                          theme === 'dark' ? 'bg-slate-950/50 border-white/10 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Available Public Rooms list */}
+                    <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1">
+                      {joinablePublicRooms
+                        .filter(r => r.name.toLowerCase().includes(joiningRoomSearch.toLowerCase()) || r.description.toLowerCase().includes(joiningRoomSearch.toLowerCase()))
+                        .map(r => (
+                          <div
+                            key={r.name}
+                            onClick={() => handleJoinRoom(r.name, r.description)}
+                            className={`p-3 rounded-2xl border flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+                              theme === 'dark'
+                                ? 'bg-slate-950/30 border-white/5 hover:bg-slate-950/65 hover:border-white/10'
+                                : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="truncate flex-1 pr-3">
+                              <p className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                                <Hash className="w-3.5 h-3.5 shrink-0" />
+                                {r.name.replace('#', '')}
+                              </p>
+                              <p className="text-[10px] text-slate-400 truncate mt-0.5">{r.description}</p>
+                            </div>
+                            <span className="text-[10px] font-black text-indigo-500 bg-indigo-500/10 px-2 py-1 rounded-lg">JOIN</span>
+                          </div>
+                        ))}
+
+                      {/* If searched name is not in public list, show quick create/join option */}
+                      {joiningRoomSearch.trim().length > 1 && !joinablePublicRooms.some(r => r.name.toLowerCase() === ('#' + joiningRoomSearch.trim().toLowerCase().replace('#', ''))) && (
+                        <div
+                          onClick={() => {
+                            let cleanSearch = joiningRoomSearch.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+                            if (!cleanSearch.startsWith('#')) cleanSearch = '#' + cleanSearch;
+                            handleJoinRoom(cleanSearch, 'Custom discussion room');
+                            setJoiningRoomSearch('');
+                          }}
+                          className={`p-3 rounded-2xl border-dashed border-2 flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] ${
+                            theme === 'dark'
+                              ? 'border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/5'
+                              : 'border-indigo-500/30 text-indigo-600 hover:bg-indigo-500/5'
+                          }`}
+                        >
+                          <div>
+                            <p className="text-xs font-bold flex items-center gap-1">
+                              <Plus className="w-3.5 h-3.5" />
+                              Join & Launch: #{joiningRoomSearch.trim().toLowerCase().replace('#', '')}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Initialize a custom channel instantly</p>
+                          </div>
+                          <span className="text-[10px] font-black bg-indigo-500 text-white px-2.5 py-1 rounded-lg">GO</span>
+                        </div>
+                      )}
+
+                      {joinablePublicRooms.filter(r => r.name.toLowerCase().includes(joiningRoomSearch.toLowerCase()) || r.description.toLowerCase().includes(joiningRoomSearch.toLowerCase())).length === 0 && joiningRoomSearch.trim().length === 0 && (
+                        <p className="text-center text-xs text-slate-500 py-4">All standard neighborhood channels have been joined!</p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800">
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        💡 <span className="font-bold">Note:</span> Creating or joining a discussion room allows you to immediately coordinate with online neighborhood citizens and invite our AI Bot to help find solutions!
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
 

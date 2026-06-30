@@ -1386,48 +1386,49 @@ export async function ensureSeededData() {
       }
     ];
 
-    if (isLocalMode) {
-      if (!fs.existsSync(usersFile)) {
-        writeJsonFile(usersFile, defaultUsers);
-        console.log('✅ Local data_users.json auto-seeded.');
-      }
+    // Always ensure local files are seeded so if we fall back to local mode at runtime, they are fully ready.
+    if (!fs.existsSync(usersFile)) {
+      writeJsonFile(usersFile, defaultUsers);
+      console.log('✅ Local data_users.json auto-seeded.');
+    }
 
-      if (!fs.existsSync(credentialsFile)) {
-        writeJsonFile(credentialsFile, defaultCredentials);
-        console.log('✅ Local data_credentials.json auto-seeded.');
-      }
+    if (!fs.existsSync(credentialsFile)) {
+      writeJsonFile(credentialsFile, defaultCredentials);
+      console.log('✅ Local data_credentials.json auto-seeded.');
+    }
 
-      if (!fs.existsSync(sessionFile)) {
-        writeJsonFile(sessionFile, {
-          currentUserSession: defaultUsers[0]
-        });
-        console.log('✅ Local data_session.json auto-seeded.');
-      }
+    if (!fs.existsSync(sessionFile)) {
+      writeJsonFile(sessionFile, {
+        currentUserSession: defaultUsers[0]
+      });
+      console.log('✅ Local data_session.json auto-seeded.');
+    }
 
-      // Check and dynamically append/merge any missing default issues
-      let existingIssues: Issue[] = [];
-      if (fs.existsSync(issuesFile)) {
-        try {
-          existingIssues = readJsonFile(issuesFile) || [];
-        } catch (err) {
-          console.error('Failed to read existing issues:', err);
-        }
+    // Check and dynamically append/merge any missing default issues
+    let existingIssues: Issue[] = [];
+    if (fs.existsSync(issuesFile)) {
+      try {
+        existingIssues = readJsonFile(issuesFile) || [];
+      } catch (err) {
+        console.error('Failed to read existing issues:', err);
       }
+    }
 
-      let mergedIssues = [...existingIssues];
-      let addedAny = false;
-      for (const defIssue of defaultIssues) {
-        if (!mergedIssues.some(i => i.id === defIssue.id)) {
-          mergedIssues.push(defIssue as any);
-          addedAny = true;
-        }
+    let mergedIssues = [...existingIssues];
+    let addedAny = false;
+    for (const defIssue of defaultIssues) {
+      if (!mergedIssues.some(i => i.id === defIssue.id)) {
+        mergedIssues.push(defIssue as any);
+        addedAny = true;
       }
+    }
 
-      if (!fs.existsSync(issuesFile) || addedAny) {
-        writeJsonFile(issuesFile, mergedIssues);
-        console.log(`✅ Local data_issues.json seeded/updated with ${addedAny ? 'new' : 'all'} default issues.`);
-      }
-    } else {
+    if (!fs.existsSync(issuesFile) || addedAny) {
+      writeJsonFile(issuesFile, mergedIssues);
+      console.log(`✅ Local data_issues.json seeded/updated with ${addedAny ? 'new' : 'all'} default issues.`);
+    }
+
+    if (!isLocalMode) {
       // Live Firestore Mode: Auto-seed the collections if issues is empty
       try {
         const issuesSnap = await db.collection('issues').limit(1).get();

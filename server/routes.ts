@@ -566,8 +566,33 @@ router.post('/auth/send-reset-otp', async (req, res) => {
 
     await saveOTP(sanitizedEmail, code, token, expiresAt);
 
-    // Build the email message
-    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password?token=${token}`;
+    // Build the email message using the external public base URL dynamically from Referer/Origin or Forwarded headers
+    let publicBaseUrl = '';
+    const referer = req.get('referer');
+    if (referer) {
+      try {
+        const parsed = new URL(referer);
+        publicBaseUrl = `${parsed.protocol}//${parsed.host}`;
+      } catch (e) {}
+    }
+    
+    if (!publicBaseUrl) {
+      const origin = req.get('origin');
+      if (origin) {
+        try {
+          const parsed = new URL(origin);
+          publicBaseUrl = `${parsed.protocol}//${parsed.host}`;
+        } catch (e) {}
+      }
+    }
+    
+    if (!publicBaseUrl) {
+      const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+      const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
+      publicBaseUrl = `${proto}://${host}`;
+    }
+
+    const resetUrl = `${publicBaseUrl}/reset-password?token=${token}`;
     
     const subject = method === 'link' 
       ? '🔑 CivicHero Secure Password Reset Link' 
@@ -2172,6 +2197,56 @@ router.post('/contact', actionLimiter, async (req, res) => {
   }
 });
 
+// POST /api/civic-mail  — Send a direct civic mail via Brevo to any custom address written by public
+router.post('/civic-mail', actionLimiter, async (req, res) => {
+  try {
+    const { to, subject, category, message } = req.body;
+    if (!to || !subject || !category || !message) {
+      return res.status(400).json({ error: 'All fields (to, subject, category, message) are required.' });
+    }
+
+    const cleanTo = to.toLowerCase().trim();
+    const cleanSubject = sanitizeInput(subject);
+    const cleanMessage = sanitizeInput(message);
+    const cleanCategory = sanitizeInput(category);
+
+    const session = await getCurrentUserSession(req);
+    const senderEmail = session?.email || 'anonymous-citizen@civichero.org';
+    const senderName = session?.name || 'Anonymous Citizen';
+
+    auditLog('CIVIC_MAIL_SENT', session?.id || 'anonymous', { to: cleanTo, subject: cleanSubject, category: cleanCategory }, req);
+
+    const emailSubject = `[CivicHero Escalation - ${cleanCategory.toUpperCase()}] ${cleanSubject}`;
+    const emailText = `Hello,\n\nThis is an escalated civic coordination message sent by ${senderName} (${senderEmail}) via CivicHero.\n\nDepartment Category: ${cleanCategory.toUpperCase()}\n\nSubject: ${cleanSubject}\n\nMessage Details:\n${cleanMessage}\n\n---\nCivicHero Intelligence Engine`;
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #4f46e5; margin-top: 0; font-family: 'Inter', sans-serif;">Civic Escalation Dispatch</h2>
+        <p>This is an escalated civic coordination message sent by <strong>${senderName}</strong> (${senderEmail}) via the CivicHero platform.</p>
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #4f46e5;">
+          <p style="margin: 0 0 8px 0;"><strong>Category/Route:</strong> ${cleanCategory.toUpperCase()}</p>
+          <p style="margin: 0 0 8px 0;"><strong>Subject:</strong> ${cleanSubject}</p>
+          <p style="margin: 0;"><strong>Message:</strong></p>
+          <p style="margin: 5px 0 0 0; font-style: italic; color: #475569;">"${cleanMessage}"</p>
+        </div>
+        <p>Please address this issue accordingly. The sender is expecting a response at <strong>${senderEmail}</strong>.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #64748b; text-align: center;">Sent securely via CivicHero Platform</p>
+      </div>
+    `;
+
+    const success = await sendEmailViaBrevo(cleanTo, emailSubject, emailText, emailHtml);
+    if (success) {
+      res.json({ success: true, message: 'Civic mail sent successfully!' });
+    } else {
+      res.status(500).json({ error: 'Failed to dispatch email via Brevo.' });
+    }
+  } catch (err) {
+    console.error('Failed to send civic mail:', err);
+    res.status(500).json({ error: 'Internal server error while sending email.' });
+  }
+});
+
 // POST /api/contact/:id/reply  — Reply to a contact message (authority/admin only)
 router.post('/contact/:id/reply', async (req, res) => {
   try {
@@ -2234,6 +2309,67 @@ router.post('/contact/:id/reply', async (req, res) => {
     console.error('Failed to reply to contact message:', err);
     res.status(500).json({ error: 'Failed to process reply.' });
   }
+});
+
+// ── GEMINI 3.5 POWERED CIVIC CHAT BOT ───────────────────────────────────────
+router.post('/chat/gemini-bot', async (req, res) => {
+  const { messages, channel } = req.body;
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'Messages array is required.' });
+  }
+
+  const lastMsg = messages[messages.length - 1];
+  const lastText = lastMsg.text || '';
+  const lowerText = lastText.toLowerCase();
+
+  if (ai) {
+    try {
+      const historyStr = messages.slice(-6).map(m => `${m.senderName} (${m.senderRole}): ${m.text}`).join('\n');
+      const prompt = `You are "Samadhan AI" (represented as a room citizen bot named Samadhan AI with role "assistant"), a helpful, intelligent local civic AI coordinator in a community forum.
+Analyzing channel: ${channel}.
+
+Here are the last few messages in the chat room:
+${historyStr}
+
+Decide if you should respond to the latest message: "${lastText}" sent by ${lastMsg.senderName}.
+Guidelines:
+1. If the message mentions "bot", "ai", "gemini", "assistant", "samadhan", or explicitly asks a civic question (e.g. asking about cleanups, road repairs, streetlights, or water leaks), you MUST respond.
+2. If it's general chitchat or unrelated/short statements (like "ok", "cool", "test", "hi") with no specific question or mention, reply with exactly "NO_REPLY".
+
+If you decide to respond, write a friendly, supportive, and highly practical reply (max 2-3 sentences). Focus on being a helpful neighborhood digital assistant. Do NOT use markdown formatting (no bold tags, no asterisks, no headers). Keep it plain, natural text.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: prompt,
+      });
+
+      const responseText = response.text?.trim() || '';
+      if (responseText === 'NO_REPLY' || responseText.toUpperCase().includes('NO_REPLY')) {
+        return res.json({ shouldReply: false });
+      }
+
+      return res.json({ shouldReply: true, text: responseText });
+    } catch (err) {
+      console.error('Error generating chat bot reply via Gemini:', err);
+      // Fall through to heuristic fallback
+    }
+  }
+
+  // Heuristic offline fallback
+  const mentionsBot = lowerText.includes('bot') || lowerText.includes('gemini') || lowerText.includes('ai') || lowerText.includes('samadhan') || lowerText.includes('assistant');
+  const asksQuestion = lastText.includes('?') || lowerText.includes('how') || lowerText.includes('why') || lowerText.includes('where') || lowerText.includes('when') || lowerText.includes('help');
+
+  if (mentionsBot || asksQuestion) {
+    let replyText = `Hi! I'm Samadhan AI, your helpful neighborhood civic assistant. If you have any concerns about roads, waste, water, or streetlights, you can log them in the "Report Hazard" tab so we can automatically dispatch cleanup crews!`;
+    if (lowerText.includes('cleanup') || lowerText.includes('volunteer') || lowerText.includes('plant')) {
+      replyText = `That sounds like a wonderful plan! Community cleanups and tree plantations can be coordinated directly in the "#volunteer-initiatives" room. Count me in to help spread the word!`;
+    } else if (lowerText.includes('pothole') || lowerText.includes('road')) {
+      replyText = `For potholes and broken roads, please make sure you report them in the "Report Hazard" tab. This logs them onto our public blockchain and starts the automatic SLA dispatch countdown!`;
+    }
+    return res.json({ shouldReply: true, text: replyText });
+  }
+
+  return res.json({ shouldReply: false });
 });
 
 export { router };

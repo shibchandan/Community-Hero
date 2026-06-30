@@ -897,6 +897,7 @@ export default function App() {
                       onVote={handleVote}
                       onAddComment={handleAddComment}
                       currentUserRole={currentUser?.role || 'citizen'}
+                      currentUser={currentUser}
                       theme={theme}
                       activeSubTab={activeFeedTab}
                       onSubTabChange={setActiveFeedTab}

@@ -71,6 +71,9 @@ export default function IssueReporter({
   const [callTimer, setCallTimer] = useState<number>(0);
   const [callInterval, setCallInterval] = useState<any>(null);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailTo, setEmailTo] = useState('grievance@kmcgov.in');
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [emailCategory, setEmailCategory] = useState('general');
@@ -139,16 +142,42 @@ export default function IssueReporter({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailSubject.trim() || !emailBody.trim()) return;
-    setEmailSubmitted(true);
-    setTimeout(() => {
-      setEmailSubmitted(false);
-      setEmailSubject('');
-      setEmailBody('');
-      setMode('need_help');
-    }, 3500);
+    if (!emailTo.trim() || !emailSubject.trim() || !emailBody.trim()) return;
+    
+    setEmailSubmitting(true);
+    setEmailError(null);
+    try {
+      const response = await fetch('/api/civic-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailTo.trim(),
+          subject: emailSubject.trim(),
+          category: emailCategory,
+          message: emailBody.trim()
+        })
+      });
+
+      if (response.ok) {
+        setEmailSubmitted(true);
+        setTimeout(() => {
+          setEmailSubmitted(false);
+          setEmailSubject('');
+          setEmailBody('');
+          setMode('need_help');
+        }, 4500);
+      } else {
+        const errData = await response.json();
+        setEmailError(errData.error || 'Failed to dispatch email. Please verify configuration.');
+      }
+    } catch (err) {
+      console.error('Error dispatching civic mail:', err);
+      setEmailError('Failed to dispatch email due to network error.');
+    } finally {
+      setEmailSubmitting(false);
+    }
   };
 
   const enableAutoLocation = () => {
@@ -1067,17 +1096,26 @@ export default function IssueReporter({
             </div>
           ) : (
             <form onSubmit={handleEmailSubmit} className="space-y-4">
+              {emailError && (
+                <div className="p-3 text-xs rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{emailError}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-700 font-extrabold'}`}>To</label>
                   <input
-                    type="text"
-                    value="grievance@kmcgov.in"
-                    disabled
-                    className={`w-full text-xs px-3 py-2 rounded-lg border cursor-not-allowed ${
+                    type="email"
+                    required
+                    placeholder="recipient@example.com"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    className={`w-full text-xs px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
                       theme === 'dark' 
-                        ? 'border-white/10 bg-slate-950/60 text-gray-400' 
-                        : 'border-slate-300 bg-slate-100 text-slate-700 font-bold'
+                        ? 'border-white/10 bg-slate-950 text-white' 
+                        : 'border-slate-300 bg-white text-slate-900 font-medium'
                     }`}
                   />
                 </div>
@@ -1129,9 +1167,12 @@ export default function IssueReporter({
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md transition-all cursor-pointer uppercase tracking-wider"
+                disabled={emailSubmitting}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md transition-all cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2 ${
+                  emailSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
               >
-                Send Support Request
+                {emailSubmitting ? 'Dispatching Mail...' : 'Send Support Request'}
               </button>
             </form>
           )}
