@@ -95,7 +95,7 @@ const PRE_SEEDED_POSTS: BoardPost[] = [
     title: 'Sector 4 Water Leakage FIXED! 🎉💧',
     content: 'Amazing news! The major water pipe burst near the main intersection of Sector 4 that was wasting thousands of liters of clean water has been completely repaired! The municipal crew worked overnight. Big thanks to the community for supporting the report on our portal and voting it to the top. This shows the power of samadhan!',
     tag: '#praise',
-    imageUrl: 'https://images.unsplash.com/photo-1542013936693-8848e574047a?auto=format&fit=crop&q=80&w=1000',
+    imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=1000',
     likes: 38,
     likedByUser: false,
     reactions: { '👏': 22, '❤️': 14, '🎉': 19 },
@@ -229,7 +229,17 @@ export default function CommunityFeed({
   const [boardPosts, setBoardPosts] = useState<BoardPost[]>(() => {
     try {
       const stored = localStorage.getItem('civic_board_posts');
-      return stored ? JSON.parse(stored) : PRE_SEEDED_POSTS;
+      const posts = stored ? JSON.parse(stored) : PRE_SEEDED_POSTS;
+      // Sanitize/upgrade any bad/broken image URLs in old localStorage
+      return posts.map((post: any) => {
+        if (post.id === 'post-2' || (post.imageUrl && (post.imageUrl.includes('photo-1517646287270-a5a9ca602e5c') || post.imageUrl.includes('photo-1500340520802-168326a2f3d1') || post.imageUrl.includes('photo-1542013936693-8848e574047a') || post.imageUrl.includes('photo-1541888946425-d81bb19240f5')))) {
+          return {
+            ...post,
+            imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&q=80&w=1000'
+          };
+        }
+        return post;
+      });
     } catch {
       return PRE_SEEDED_POSTS;
     }
@@ -240,6 +250,7 @@ export default function CommunityFeed({
   const [postTag, setPostTag] = useState<BoardPost['tag']>('#general');
   const [postImageUrl, setPostImageUrl] = useState('');
   const [postCommentTexts, setPostCommentTexts] = useState<Record<string, string>>({});
+  const [expandedBoardComments, setExpandedBoardComments] = useState<Record<string, boolean>>({});
   const [boardSearchQuery, setBoardSearchQuery] = useState('');
   const [boardTagFilter, setBoardTagFilter] = useState<string>('all');
 
@@ -713,9 +724,9 @@ export default function CommunityFeed({
           </div>
 
           {/* ── Issues Stream List ───────────────────────────────────────────── */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {filteredIssues.length === 0 ? (
-              <div className={`p-8 text-center rounded-2xl border ${
+              <div className={`p-8 text-center rounded-2xl border col-span-full ${
                 theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'
               }`}>
                 <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
@@ -733,7 +744,7 @@ export default function CommunityFeed({
                     key={issue.id}
                     id={`issue-card-${issue.id}`}
                     onClick={() => onSelectIssue(isSelected ? undefined : issue)}
-                    className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${
+                    className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden flex flex-col h-full ${
                       isSelected 
                         ? 'ring-2 ring-indigo-500/80 shadow-xl' 
                         : 'hover:translate-y-[-1px]'
@@ -744,7 +755,7 @@ export default function CommunityFeed({
                     }`}
                   >
                     {/* Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {getCategoryBadge(issue.category)}
                         {getStatusBadge(issue.status)}
@@ -760,9 +771,9 @@ export default function CommunityFeed({
                     </div>
 
                     {/* Content Section */}
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="flex flex-col flex-1">
                       {/* Image Thumbnail */}
-                      <div className="md:col-span-1 h-24 md:h-20 w-full overflow-hidden rounded-xl border border-white/5 bg-slate-900">
+                      <div className="h-44 w-full overflow-hidden rounded-xl border border-slate-100 dark:border-white/5 bg-slate-900 mb-3.5 shrink-0 relative">
                         <img 
                           src={issue.mediaUrl} 
                           alt={issue.title} 
@@ -772,32 +783,34 @@ export default function CommunityFeed({
                       </div>
 
                       {/* Details */}
-                      <div className="md:col-span-4 flex flex-col justify-between">
+                      <div className="flex-1 flex flex-col justify-between">
                         <div>
-                          <h3 className={`text-sm font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
+                          <h3 className={`text-sm font-bold leading-snug line-clamp-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900 font-extrabold'}`}>
                             {issue.title}
                           </h3>
-                          <p className={`text-xs line-clamp-2 mt-1 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
+                          <p className={`text-xs line-clamp-3 mt-1.5 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
                             {issue.description}
                           </p>
                         </div>
 
                         {/* Metadata Footer */}
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 pt-2.5 border-t border-slate-100 dark:border-white/5 text-[10px]">
-                          <span className={`flex items-center gap-1 font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
+                        <div className="flex flex-col gap-2 mt-4 pt-3.5 border-t border-slate-100 dark:border-white/5 text-[10px]">
+                          <span className={`flex items-center gap-1.5 font-semibold ${theme === 'dark' ? 'text-slate-400' : 'text-slate-700'}`}>
                             <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                            {issue.location.address}, {issue.location.area}
+                            <span className="truncate">{issue.location.address}, {issue.location.area}</span>
                           </span>
-                          <span className={`flex items-center gap-1 font-mono font-bold ${
-                            issue.severity === 'high' ? 'text-rose-500' : issue.severity === 'medium' ? 'text-amber-500' : 'text-emerald-500'
-                          }`}>
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                            {issue.severity.toUpperCase()} Priority
-                          </span>
-                          <span className={`flex items-center gap-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500 font-semibold'}`}>
-                            <User className="w-3.5 h-3.5 text-indigo-400" />
-                            By {issue.reportedByName}
-                          </span>
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className={`flex items-center gap-1 font-mono font-bold ${
+                              issue.severity === 'high' ? 'text-rose-500' : issue.severity === 'medium' ? 'text-amber-500' : 'text-emerald-500'
+                            }`}>
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              {issue.severity.toUpperCase()} Priority
+                            </span>
+                            <span className={`flex items-center gap-1 ${theme === 'dark' ? 'text-slate-500' : 'text-slate-500 font-semibold'}`}>
+                              <User className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              <span className="truncate">By {issue.reportedByName}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1143,9 +1156,9 @@ export default function CommunityFeed({
           </div>
 
           {/* Board Feed Stream */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             {filteredBoardPosts.length === 0 ? (
-              <div className={`p-8 text-center rounded-2xl border ${
+              <div className={`p-8 text-center rounded-2xl border col-span-full ${
                 theme === 'dark' ? 'bg-white/2 border-white/5' : 'bg-slate-50 border-slate-100'
               }`}>
                 <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto mb-2" />
@@ -1209,7 +1222,7 @@ export default function CommunityFeed({
                       
                       {post.imageUrl && (
                         <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-slate-900 mt-2">
-                          <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                          <img src={post.imageUrl} alt={post.title} referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                         </div>
                       )}
                     </div>
@@ -1248,52 +1261,71 @@ export default function CommunityFeed({
                         </div>
                       </div>
 
-                      <div className={`flex items-center gap-1 font-bold text-[10px] uppercase tracking-wider ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      <button
+                        onClick={() => setExpandedBoardComments(prev => ({ ...prev, [post.id]: !prev[post.id] }))}
+                        className={`flex items-center gap-1.5 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1.5 rounded-lg transition-all hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer ${
+                          expandedBoardComments[post.id] 
+                            ? 'text-indigo-500 bg-indigo-500/5' 
+                            : theme === 'dark' ? 'text-slate-400 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                        title="Toggle responses"
+                      >
                         <MessageCircle className="w-3.5 h-3.5 text-indigo-400" />
                         <span>{post.comments.length} Comments logged</span>
-                      </div>
+                        <span className="text-[8px] opacity-60 ml-0.5">
+                          {expandedBoardComments[post.id] ? "▲ Hide" : "▼ Show"}
+                        </span>
+                      </button>
                     </div>
 
-                    {/* Board Comments list */}
-                    <div className="space-y-2 mt-2">
-                      {post.comments.map(c => (
-                        <div key={c.id} className={`p-2.5 rounded-lg text-xs border ${
-                          theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200/50'
-                        }`}>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-1 text-[9px] font-bold">
-                              <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-900 font-extrabold'}>{c.authorName}</span>
-                              <span className="opacity-50">•</span>
-                              <span className={`uppercase tracking-widest text-[8px] px-1 rounded border ${
-                                c.authorRole === 'authority' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/15' : 'bg-slate-500/10 text-slate-400 border-slate-500/15'
-                              }`}>{c.authorRole}</span>
+                    {/* Board Comments list (collapsible) */}
+                    {expandedBoardComments[post.id] && (
+                      <div className="space-y-2 mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5 animate-fadeIn">
+                        {post.comments.length === 0 ? (
+                          <p className={`text-[10px] italic py-2 text-center ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>
+                            No responses logged yet. Be the first to start the conversation!
+                          </p>
+                        ) : (
+                          post.comments.map(c => (
+                            <div key={c.id} className={`p-2.5 rounded-lg text-xs border ${
+                              theme === 'dark' ? 'bg-slate-950/40 border-white/5' : 'bg-slate-50 border-slate-200/50'
+                            }`}>
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-1 text-[9px] font-bold">
+                                  <span className={theme === 'dark' ? 'text-slate-300' : 'text-slate-900 font-extrabold'}>{c.authorName}</span>
+                                  <span className="opacity-50">•</span>
+                                  <span className={`uppercase tracking-widest text-[8px] px-1 rounded border ${
+                                    c.authorRole === 'authority' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/15' : 'bg-slate-500/10 text-slate-400 border-slate-500/15'
+                                  }`}>{c.authorRole}</span>
+                                </div>
+                                <span className={`text-[9px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{getDaysAgo(c.createdAt)}</span>
+                              </div>
+                              <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>{c.text}</p>
                             </div>
-                            <span className={`text-[9px] ${theme === 'dark' ? 'text-slate-500' : 'text-slate-400'}`}>{getDaysAgo(c.createdAt)}</span>
-                          </div>
-                          <p className={`text-xs ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700 font-medium'}`}>{c.text}</p>
-                        </div>
-                      ))}
+                          ))
+                        )}
 
-                      {/* Comment Form */}
-                      <form onSubmit={(e) => handleAddBoardComment(post.id, e)} className="flex gap-2 pt-1.5">
-                        <input
-                          type="text"
-                          required
-                          value={postCommentTexts[post.id] || ''}
-                          onChange={e => setPostCommentTexts({ ...postCommentTexts, [post.id]: e.target.value })}
-                          placeholder="Type a constructive response..."
-                          className={`flex-1 text-xs px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                            theme === 'dark' ? 'bg-slate-950 border-white/10 text-white placeholder-slate-600' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
-                          }`}
-                        />
-                        <button
-                          type="submit"
-                          className="px-3.5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all cursor-pointer shadow-xs"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                        </button>
-                      </form>
-                    </div>
+                        {/* Comment Form */}
+                        <form onSubmit={(e) => handleAddBoardComment(post.id, e)} className="flex gap-2 pt-1.5">
+                          <input
+                            type="text"
+                            required
+                            value={postCommentTexts[post.id] || ''}
+                            onChange={e => setPostCommentTexts({ ...postCommentTexts, [post.id]: e.target.value })}
+                            placeholder="Type a constructive response..."
+                            className={`flex-1 text-xs px-3 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                              theme === 'dark' ? 'bg-slate-950 border-white/10 text-white placeholder-slate-600' : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400'
+                            }`}
+                          />
+                          <button
+                            type="submit"
+                            className="px-3.5 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all cursor-pointer shadow-xs"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                        </form>
+                      </div>
+                    )}
 
                   </div>
                 );
@@ -1317,7 +1349,7 @@ export default function CommunityFeed({
           }`}
         >
           {/* Chat Left Sidebar: Channels list */}
-          <div className={`col-span-1 border-r flex flex-col justify-between ${
+          <div className={`hidden lg:flex col-span-1 border-r flex-col justify-between ${
             theme === 'dark' ? 'border-white/10 bg-slate-950/20' : 'border-slate-200 bg-slate-50'
           }`}>
             <div className="p-3 space-y-4">
@@ -1377,7 +1409,29 @@ export default function CommunityFeed({
           </div>
 
           {/* Chat Center Pane: Message Log & Input */}
-          <div className="col-span-1 lg:col-span-2 flex flex-col justify-between h-full relative bg-transparent">
+          <div className="col-span-1 lg:col-span-2 flex flex-col justify-between h-full relative bg-transparent min-w-0">
+            {/* Mobile Channel Tabs selector */}
+            <div className={`lg:hidden flex gap-2 p-2 overflow-x-auto border-b shrink-0`} style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {Object.keys(chatMessages).map(ch => {
+                const isActive = activeChannel === ch;
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => setActiveChannel(ch)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : theme === 'dark'
+                          ? 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
+                          : 'bg-slate-150 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    #{ch.replace('#', '')}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Channel Title */}
             <div className={`p-3 border-b flex items-center justify-between ${theme === 'dark' ? 'border-white/10 bg-slate-950/10' : 'border-slate-200 bg-slate-50'}`}>
               <div className="flex items-center gap-1.5">

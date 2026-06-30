@@ -16,9 +16,17 @@ import {
 interface AuthPageProps {
   onAuthSuccess: () => void;
   inline?: boolean;
+  theme?: 'dark' | 'light';
 }
 
-export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
+export default function AuthPage({ onAuthSuccess, inline, theme = 'dark' }: AuthPageProps) {
+  const isLightTheme = theme === 'light';
+  const inputClassesBase = `w-full text-sm pl-10 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
+    isLightTheme 
+      ? 'bg-white text-slate-900 border-slate-300 placeholder-slate-400' 
+      : 'bg-slate-950 text-white border-white/10 placeholder-gray-600'
+  }`;
+  
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,11 +61,29 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
       });
   }, []);
 
-  // Extract reset token from URL on mount
+  // Extract reset token from URL or localStorage on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tokenParam = params.get('token');
+    let tokenParam = params.get('token');
+    if (!tokenParam && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+      tokenParam = hashParams.get('token');
+    }
+    
+    if (!tokenParam) {
+      try {
+        tokenParam = localStorage.getItem('pending_reset_token');
+      } catch (e) {}
+    }
+
     if (tokenParam) {
+      // Clear any logged in state when we are in password reset flow
+      try {
+        localStorage.removeItem('civic_hero_session');
+      } catch (e) {}
+      window.dispatchEvent(new Event('civic-logout'));
+      fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+
       setLoading(true);
       setError(null);
       setSuccessMessage(null);
@@ -71,6 +97,9 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           const data = await res.json();
           if (!res.ok) {
             setError(data.error || 'The secure password reset link is invalid or has expired.');
+            try {
+              localStorage.removeItem('pending_reset_token');
+            } catch (e) {}
             return;
           }
           
@@ -91,6 +120,13 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
   }, []);
 
   const handleForgotPassword = () => {
+    // Clear any active logged-in session when user begins password recovery
+    try {
+      localStorage.removeItem('civic_hero_session');
+    } catch (e) {}
+    window.dispatchEvent(new Event('civic-logout'));
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+
     setError(null);
     setSuccessMessage(null);
     setIsResetMode(true);
@@ -203,6 +239,9 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         const url = new URL(window.location.href);
         url.searchParams.delete('token');
         window.history.replaceState({}, '', url.toString());
+        try {
+          localStorage.removeItem('pending_reset_token');
+        } catch (e) {}
         setIsResetMode(false);
         setIsLogin(true);
         setNewPassword('');
@@ -220,7 +259,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
 
   return (
-    <div className={inline ? "" : "min-h-screen bento-bg flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden"}>
+    <div className={inline ? "" : `min-h-screen flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden ${isLightTheme ? 'bento-bg-light' : 'bento-bg'}`}>
       {!inline && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-[20%] left-[25%] w-[450px] h-[450px] rounded-full bg-indigo-500/10 blur-[130px]" />
@@ -231,31 +270,33 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className={`relative z-10 w-full max-w-md p-8 rounded-2xl bento-card border border-white/10 ${inline ? 'bg-[#0f172a]' : 'shadow-2xl'}`}
+        className={`relative z-10 w-full max-w-md p-5 sm:p-8 rounded-2xl bento-card border ${
+          isLightTheme ? 'border-slate-200 bg-white/95 text-slate-900' : 'border-white/10 bg-slate-900/80 text-white'
+        } ${inline ? 'bg-transparent shadow-none border-none' : 'shadow-2xl'}`}
       >
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-3">
             <Sparkles className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-3xl font-extrabold font-display text-white tracking-tight">
+          <h1 className={`text-3xl font-extrabold font-display tracking-tight ${isLightTheme ? 'text-slate-950 font-black' : 'text-white'}`}>
             Samadhan Setu
           </h1>
-          <p className="text-xs text-blue-400 font-semibold uppercase tracking-wider mt-1">
+          <p className={`text-xs font-semibold uppercase tracking-wider mt-1 ${isLightTheme ? 'text-indigo-600' : 'text-blue-400'}`}>
             Civic Intelligence Engine
           </p>
         </div>
 
         {/* Tab Selector */}
         {!isResetMode && (
-          <div className="flex rounded-xl bg-white/5 p-1 mb-6 border border-white/10">
+          <div className={`flex rounded-xl p-1 mb-6 border ${isLightTheme ? 'bg-slate-100 border-slate-200' : 'bg-white/5 border-white/10'}`}>
             <button
               type="button"
               onClick={() => { setIsLogin(true); setError(null); setSuccessMessage(null); }}
               className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 isLogin 
                   ? 'bg-indigo-600 text-white shadow-md' 
-                  : 'text-gray-400 hover:text-white'
+                  : isLightTheme ? 'text-slate-500 hover:text-slate-900' : 'text-gray-400 hover:text-white'
               }`}
             >
               Sign In
@@ -266,7 +307,7 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 !isLogin 
                   ? 'bg-indigo-600 text-white shadow-md' 
-                  : 'text-gray-400 hover:text-white'
+                  : isLightTheme ? 'text-slate-500 hover:text-slate-900' : 'text-gray-400 hover:text-white'
               }`}
             >
               Create Account
@@ -278,9 +319,11 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-5 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-start gap-2.5"
+            className={`mb-5 p-4 rounded-xl border text-xs flex items-start gap-2.5 ${
+              isLightTheme ? 'bg-red-50 border-red-200 text-red-700' : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}
           >
-            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${isLightTheme ? 'text-red-600' : 'text-red-400'}`} />
             <span className="leading-relaxed">{error}</span>
           </motion.div>
         )}
@@ -289,7 +332,9 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-5 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 flex items-start gap-2.5 animate-fadeIn"
+            className={`mb-5 p-4 rounded-xl border text-xs flex items-start gap-2.5 animate-fadeIn ${
+              isLightTheme ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            }`}
           >
             <span className="text-base shrink-0">✉️</span>
             <span className="leading-relaxed">{successMessage}</span>
@@ -299,12 +344,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         {isResetMode ? (
           <form onSubmit={handleResetSubmit} className="space-y-4 animate-fadeIn">
             <div className="text-center mb-2">
-              <h2 className="text-sm font-bold text-indigo-400">
+              <h2 className={`text-sm font-bold ${isLightTheme ? 'text-indigo-600 font-extrabold' : 'text-indigo-400'}`}>
                 {resetStep === 1 
                   ? '🔒 Password Recovery' 
                   : '🔐 Set New Password'}
               </h2>
-              <p className="text-[11px] text-gray-400 mt-1">
+              <p className={`text-[11px] mt-1 ${isLightTheme ? 'text-slate-500 font-medium' : 'text-gray-400'}`}>
                 {resetStep === 1 
                   ? "Enter your registered email address to receive a secure reset link." 
                   : "Please supply a strong new password below."}
@@ -313,12 +358,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
             {resetStep === 1 ? (
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                   Registered Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Mail className="w-4 h-4 text-gray-500" />
+                    <Mail className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                   </div>
                   <input
                     type="email"
@@ -326,25 +371,27 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                     placeholder="sarah.j@civic.org"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className={`${inputClassesBase} pr-4`}
                   />
                 </div>
               </div>
             ) : (
               <>
-                <div className="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/20 text-xs text-indigo-300 flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 mb-3 ${
+                  isLightTheme ? 'bg-indigo-50 border-indigo-150 text-indigo-700' : 'p-3 bg-indigo-950/40 border border-indigo-500/20 text-indigo-300'
+                }`}>
+                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${isLightTheme ? 'text-indigo-600' : 'text-indigo-400'}`} />
                   <span>Secure Link verified for <strong>{email}</strong></span>
                 </div>
 
                 {/* New Password input */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                     Choose New Password
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Lock className="w-4 h-4 text-gray-500" />
+                      <Lock className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                     </div>
                     <input
                       type={showNewPassword ? "text" : "password"}
@@ -352,12 +399,14 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                       placeholder="At least 6 characters"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full text-sm pl-10 pr-10 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className={`${inputClassesBase} pr-10`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                      className={`absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors cursor-pointer ${
+                        isLightTheme ? 'text-slate-400 hover:text-slate-600' : 'text-gray-500 hover:text-gray-300'
+                      }`}
                       tabIndex={-1}
                     >
                       {showNewPassword ? (
@@ -371,12 +420,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
 
                 {/* Confirm Password input */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                     Confirm New Password
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                      <Lock className="w-4 h-4 text-gray-500" />
+                      <Lock className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                     </div>
                     <input
                       type={showConfirmPassword ? "text" : "password"}
@@ -384,12 +433,14 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                       placeholder="Confirm your new password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full text-sm pl-10 pr-10 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className={`${inputClassesBase} pr-10`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                      className={`absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors cursor-pointer ${
+                        isLightTheme ? 'text-slate-400 hover:text-slate-600' : 'text-gray-500 hover:text-gray-300'
+                      }`}
                       tabIndex={-1}
                     >
                       {showConfirmPassword ? (
@@ -422,11 +473,13 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
               )}
             </button>
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/5">
+            <div className={`flex items-center justify-between pt-2 border-t ${isLightTheme ? 'border-slate-100' : 'border-white/5'}`}>
               <button
                 type="button"
                 onClick={() => { setIsResetMode(false); setError(null); setSuccessMessage(null); }}
-                className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer font-semibold transition-all ml-auto"
+                className={`text-xs font-semibold hover:underline cursor-pointer transition-all ml-auto ${
+                  isLightTheme ? 'text-indigo-600 hover:text-indigo-800' : 'text-indigo-400 hover:text-indigo-300'
+                }`}
               >
                 Back to Sign In
               </button>
@@ -436,12 +489,12 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
           <form onSubmit={handleInitialSubmit} className="space-y-4">
             {!isLogin && (
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                   Full Name
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <User className="w-4 h-4 text-gray-500" />
+                    <User className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                   </div>
                   <input
                     type="text"
@@ -449,19 +502,19 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                     placeholder="Aarav Sharma"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className={`${inputClassesBase} pr-4`}
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="w-4 h-4 text-gray-500" />
+                  <Mail className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                 </div>
                 <input
                   type="email"
@@ -469,18 +522,18 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                   placeholder="sarah.j@civic.org"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-sm pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className={`${inputClassesBase} pr-4`}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${isLightTheme ? 'text-slate-600' : 'text-gray-400'}`}>
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="w-4 h-4 text-gray-500" />
+                  <Lock className={`w-4 h-4 ${isLightTheme ? 'text-slate-400' : 'text-gray-500'}`} />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
@@ -488,12 +541,14 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full text-sm pl-10 pr-10 py-3 rounded-xl border border-white/10 bg-slate-950 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className={`${inputClassesBase} pr-10`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                  className={`absolute inset-y-0 right-0 pr-3.5 flex items-center transition-colors cursor-pointer ${
+                    isLightTheme ? 'text-slate-400 hover:text-slate-600' : 'text-gray-500 hover:text-gray-300'
+                  }`}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -508,7 +563,9 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
                   <button
                     type="button"
                     onClick={handleForgotPassword}
-                    className="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer transition-all"
+                    className={`text-xs font-bold hover:underline cursor-pointer transition-all ${
+                      isLightTheme ? 'text-indigo-600 hover:text-indigo-800' : 'text-indigo-400 hover:text-indigo-300'
+                    }`}
                   >
                     Forgot Password?
                   </button>
@@ -534,8 +591,10 @@ export default function AuthPage({ onAuthSuccess, inline }: AuthPageProps) {
         )}
 
         {/* Footer info */}
-        <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-gray-500 text-center">
-          <Shield className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+        <div className={`mt-6 flex items-center justify-center gap-2 text-[10px] text-center ${
+          isLightTheme ? 'text-slate-500 font-medium' : 'text-gray-500'
+        }`}>
+          <Shield className={`w-3.5 h-3.5 shrink-0 ${isLightTheme ? 'text-indigo-600' : 'text-indigo-400'}`} />
           <span>Local credentials secured by Firestore & Node Crypto</span>
         </div>
       </motion.div>

@@ -771,6 +771,110 @@ export async function ensureSeededData() {
         resolutionNotes: 'All bulbs replaced and tested for light output index.',
         resolvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
       },
+      {
+        id: 'issue_nd_esc_1',
+        category: 'streetlight',
+        title: 'Active High-Voltage Cable Exposure',
+        description: 'Underground electrical cables exposed to rainwater on public pavement. Extreme hazard for electrocution near kids school park.',
+        status: 'in_progress',
+        location: {
+          lat: 28.6290,
+          lng: 77.2180,
+          address: 'Park Street Crossing, Near Connaught Place, New Delhi',
+          area: 'Connaught Place',
+          city: 'New Delhi'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_aarav',
+        reportedByName: 'Aarav Sharma',
+        mediaUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80',
+        department: 'Public Lighting & Electricity Authority',
+        upvotes: 25,
+        downvotes: 0,
+        votedUsers: {
+          'user_priya': 'valid',
+          'user_rahul': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_nd_esc_1_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Aarav Sharma.',
+            timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Aarav Sharma'
+          },
+          {
+            id: 't_nd_esc_1_2',
+            status: 'in_progress',
+            title: 'SLA Breached & Escalated',
+            description: 'No response from local department within 72 hours. Automatically routed to central taskforce.',
+            timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'SLA Auto-escalation Engine'
+          }
+        ],
+        slaDays: 3,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Active electricity exposure near waterlogged school crossing zone.'
+      },
+      {
+        id: 'issue_nd_esc_2',
+        category: 'garbage',
+        title: 'Commercial Dumpster Overflow & Hazardous Spillage',
+        description: 'Severe solid waste accumulation behind Main Market Hub. Hazardous materials mixed with food waste, blocking pedestrian walkways and causing toxic odor.',
+        status: 'assigned',
+        location: {
+          lat: 28.6440,
+          lng: 77.1920,
+          address: 'Block EP, Near Karol Bagh Market, New Delhi',
+          area: 'Karol Bagh',
+          city: 'New Delhi'
+        },
+        severity: 'high',
+        createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+        reportedBy: 'user_priya',
+        reportedByName: 'Priya Patel',
+        mediaUrl: 'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?auto=format&fit=crop&w=600&q=80',
+        department: 'Sanitation & Waste Disposal Department',
+        upvotes: 31,
+        downvotes: 1,
+        votedUsers: {
+          'user_aarav': 'valid',
+          'user_rahul': 'valid'
+        },
+        comments: [],
+        timeline: [
+          {
+            id: 't_nd_esc_2_1',
+            status: 'reported',
+            title: 'Issue Reported',
+            description: 'Reported by Priya Patel.',
+            timestamp: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Priya Patel'
+          },
+          {
+            id: 't_nd_esc_2_2',
+            status: 'assigned',
+            title: 'Escalated to Municipal Inspector',
+            description: 'Escalation trigger: 30+ citizen votes without supervisor assignment.',
+            timestamp: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+            by: 'Samadhan Setu SLA Tracker'
+          }
+        ],
+        slaDays: 4,
+        escalated: true,
+        escalationDate: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+        resolutionProofUrl: null,
+        resolutionNotes: null,
+        resolvedAt: null,
+        urgencyReason: 'Massive garbage overflow blocking core commercial transit walkway.'
+      },
       // --- BIDHANNAGAR / KESHTOPUR ISSUES ---
       {
         id: 'issue_bidhan_1',

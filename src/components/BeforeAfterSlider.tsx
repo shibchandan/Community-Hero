@@ -12,7 +12,7 @@ export function BeforeAfterSlider({ beforeUrl, afterUrl }: BeforeAfterSliderProp
   if (!afterUrl) {
     return (
       <div className="relative w-full h-44 sm:h-52 md:h-60 rounded-xl overflow-hidden group border border-white/5 shadow-sm">
-        <img src={beforeUrl} alt="Reported Issue" className="w-full h-full object-cover" />
+        <img src={beforeUrl} alt="Reported Issue" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
         <div className="absolute bottom-3 left-3 px-2.5 py-1 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black tracking-widest uppercase rounded">
           Reported Condition
         </div>
@@ -23,12 +23,13 @@ export function BeforeAfterSlider({ beforeUrl, afterUrl }: BeforeAfterSliderProp
   return (
     <div className="relative w-full h-44 sm:h-52 md:h-60 rounded-xl overflow-hidden group border border-white/5 shadow-sm">
       {/* Before Image (Left side) */}
-      <img src={beforeUrl} alt="Before" className="absolute inset-0 w-full h-full object-cover" />
+      <img src={beforeUrl} alt="Before" referrerPolicy="no-referrer" className="absolute inset-0 w-full h-full object-cover" />
       
       {/* After Image (Right side - clipped) */}
       <img 
         src={afterUrl} 
         alt="After" 
+        referrerPolicy="no-referrer"
         className="absolute inset-0 w-full h-full object-cover" 
         style={{ clipPath: `polygon(${sliderPosition}% 0, 100% 0, 100% 100%, ${sliderPosition}% 100%)` }} 
       />

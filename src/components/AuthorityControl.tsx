@@ -214,7 +214,7 @@ export default function AuthorityControl({ issues, onUpdateStatus, onFastForward
               <label className={`block text-xs font-bold uppercase tracking-wider mb-2.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
                 Attach Official Repair Resolution Evidence Photo
               </label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {PROOF_PRESETS.map((preset, idx) => (
                   <div
                     key={preset.name}

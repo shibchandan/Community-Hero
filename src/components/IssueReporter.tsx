@@ -10,7 +10,7 @@ import {
   Camera, MapPin, Sparkles, AlertTriangle, Building, 
   HelpCircle, Loader2, RefreshCw, ArrowLeft, Phone, 
   Mail, Ticket, Calendar, User as UserIcon, Check, 
-  ChevronRight, ArrowRight, Shield, Volume2, Info
+  ChevronRight, ArrowRight, Shield, Volume2, Info, MessageSquare
 } from 'lucide-react';
 
 interface IssueReporterProps {
@@ -37,7 +37,7 @@ const IMAGE_PRESETS = [
   },
   {
     name: 'Street Water Burst',
-    url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=400&q=80',
+    url: 'https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?auto=format&fit=crop&w=400&q=80',
     description: 'Subterranean mains leaking water directly onto sidewalk cobblestone.',
     category: 'water'
   },
@@ -79,6 +79,8 @@ export default function IssueReporter({
   const [description, setDescription] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [customImageBase64, setCustomImageBase64] = useState<string | null>(null);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [imageAnalysisFeedback, setImageAnalysisFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -218,13 +220,52 @@ export default function IssueReporter({
     );
   };
 
+  const runImageAnalysis = async (imagePayload: string) => {
+    setIsAnalyzingImage(true);
+    setImageAnalysisFeedback(null);
+    setError(null);
+    
+    try {
+      const res = await fetch('/api/gemini/analyze-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imagePayload })
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to analyze image with AI');
+      }
+      
+      const data = await res.json();
+      
+      if (data) {
+        if (data.description) setDescription(data.description);
+        if (data.category) setCategory(data.category as IssueCategory);
+        if (data.severity) setSeverity(data.severity as SeverityLevel);
+        if (data.title) setTitle(data.title);
+        
+        // Auto show overrides to let user verify results
+        setShowOverrideForm(true);
+        setImageAnalysisFeedback(`Gemini AI Vision successfully parsed: "${data.title}" | Category: ${data.category.toUpperCase()} | Severity: ${data.severity.toUpperCase()}`);
+      }
+    } catch (err: any) {
+      console.error('Error analyzing image:', err);
+      setImageAnalysisFeedback('Could not reach Gemini Vision analyzer. Please describe details manually.');
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedPreset(null);
+      setImageAnalysisFeedback(null);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCustomImageBase64(reader.result as string);
+        const base64 = reader.result as string;
+        setCustomImageBase64(base64);
+        runImageAnalysis(base64);
       };
       reader.readAsDataURL(file);
     }
@@ -594,9 +635,7 @@ export default function IssueReporter({
                       onClick={() => {
                         setSelectedPreset(idx);
                         setCustomImageBase64(null);
-                        if (!description) {
-                          setDescription(`Detected an urgent ${preset.name.toLowerCase()} here. ${preset.description}`);
-                        }
+                        runImageAnalysis(preset.url);
                       }}
                       className={`relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
                         selectedPreset === idx
@@ -660,6 +699,35 @@ export default function IssueReporter({
                   </div>
                 )}
               </div>
+
+              {/* Dynamic Image Analysis Status */}
+              {(isAnalyzingImage || imageAnalysisFeedback) && (
+                <div className={`p-4 rounded-xl border flex flex-col gap-2.5 animate-fadeIn ${
+                  theme === 'dark' 
+                    ? 'bg-indigo-950/20 border-indigo-500/30 text-indigo-300' 
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-900'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {isAnalyzingImage ? (
+                      <Loader2 className="w-4.5 h-4.5 text-indigo-500 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4.5 h-4.5 text-indigo-500 animate-pulse" />
+                    )}
+                    <span className="text-[10px] font-black tracking-wider uppercase font-mono">
+                      {isAnalyzingImage ? 'Gemini 3.5 AI Vision analysis in-progress...' : 'Civic AI Vision Diagnostic'}
+                    </span>
+                  </div>
+                  {isAnalyzingImage ? (
+                    <p className="text-xs leading-relaxed opacity-85">
+                      Extracting spatial geometry, material hazards, and urgency metrics directly from the image pixels...
+                    </p>
+                  ) : (
+                    <p className="text-xs leading-relaxed font-semibold">
+                      {imageAnalysisFeedback}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Issue Description Area */}
               <div>
@@ -843,7 +911,7 @@ export default function IssueReporter({
           {/* Header */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { stopCallSimulation(); setMode('need_help'); }}
+              onClick={() => { setMode('need_help'); }}
               className={`p-2 rounded-xl transition-all cursor-pointer border ${
                 theme === 'dark' 
                   ? 'hover:bg-white/10 text-gray-300 border-white/10 hover:text-white' 
@@ -857,48 +925,10 @@ export default function IssueReporter({
                 Helpline Dispatch Services
               </h2>
               <p className={`text-xs mt-0.5 ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
-                Instantly connect with municipal authorities or dispatcher agents.
+                Direct communication channels with city administrators & emergency services.
               </p>
             </div>
           </div>
-
-          {/* Active Calling Simulation Banner */}
-          <AnimatePresence>
-            {activeCall && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="p-5 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 text-white flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden"
-              >
-                <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded text-[8px] uppercase tracking-widest font-black animate-pulse">
-                  <Volume2 className="w-3 h-3" /> ON AIR
-                </div>
-
-                <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center mb-3 animate-bounce">
-                  <Phone className="w-6 h-6 text-white animate-pulse" />
-                </div>
-                
-                <h4 className="text-sm font-black tracking-wide">Connecting Simulation...</h4>
-                <p className="text-xs font-mono text-white/85 mt-1">{activeCall.name} ({activeCall.number})</p>
-                
-                <div className="text-xl font-black font-mono tracking-widest mt-2 bg-black/25 px-4 py-1 rounded-full border border-white/10">
-                  {formatTime(callTimer)}
-                </div>
-
-                <p className="text-[10px] text-white/70 italic mt-2.5 max-w-xs leading-relaxed">
-                  "Hello, this is the Samadhan Setu Automated Civic Desk. Your current location sector '{activeArea}' is synchronized."
-                </p>
-
-                <button
-                  onClick={stopCallSimulation}
-                  className="mt-4 px-6 py-2 bg-white text-red-600 hover:bg-slate-100 font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all cursor-pointer"
-                >
-                  Disconnect call
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* List of Emergency Helplines */}
           <div className="space-y-3">
@@ -907,51 +937,88 @@ export default function IssueReporter({
                 name: 'KMC Control Room',
                 desc: 'For non-emergency civic requests: potholes, water logging, streetlights, or garbage.',
                 number: '1800-345-3375',
-                color: 'emerald'
+                color: 'emerald',
+                type: 'tel'
               },
               {
                 name: 'KMC WhatsApp Grievance',
                 desc: 'Report civic issues directly to Kolkata Municipal Corporation via WhatsApp.',
                 number: '+91 8335999111',
-                color: 'amber'
+                color: 'amber',
+                type: 'whatsapp'
               },
               {
                 name: 'National Emergency (112)',
                 desc: 'Strictly for active fires, structural collapses, and severe safety threats.',
                 number: '112',
-                color: 'red'
+                color: 'red',
+                type: 'tel'
               }
-            ].map((hp) => (
-              <div
-                key={hp.name}
-                className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                  theme === 'dark' ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <div>
-                  <h4 className={`text-xs font-black uppercase tracking-wide flex items-center gap-1.5 ${
-                    theme === 'dark' ? 'text-white' : 'text-slate-800'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${
-                      hp.color === 'emerald' ? 'bg-emerald-500' : hp.color === 'amber' ? 'bg-amber-500' : 'bg-red-500'
-                    }`} />
-                    {hp.name}
-                  </h4>
-                  <p className={`text-xs mt-1 leading-relaxed ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
-                    {hp.desc}
-                  </p>
-                </div>
+            ].map((hp) => {
+              const cleanedNum = hp.number.replace(/[^0-9]/g, '');
+              const redirectUrl = hp.type === 'whatsapp' 
+                ? `https://wa.me/${cleanedNum}` 
+                : `tel:${cleanedNum}`;
 
-                <button
-                  onClick={() => startCallSimulation(hp.name, hp.number)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all cursor-pointer self-start sm:self-center flex items-center gap-1.5 shadow-sm hover:scale-103 ${
-                    hp.color === 'emerald' ? 'bg-emerald-600 hover:bg-emerald-500' : hp.color === 'amber' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-rose-600 hover:bg-rose-500'
+              return (
+                <div
+                  key={hp.name}
+                  className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                    theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/8' : 'bg-slate-50 border-slate-200 hover:bg-slate-100/50'
                   }`}
                 >
-                  <Phone className="w-3.5 h-3.5" /> Dial
-                </button>
-              </div>
-            ))}
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <h4 className={`text-sm font-black uppercase tracking-wide flex items-center gap-1.5 ${
+                        theme === 'dark' ? 'text-white' : 'text-slate-800'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          hp.color === 'emerald' ? 'bg-emerald-500' : hp.color === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+                        }`} />
+                        {hp.name}
+                      </h4>
+                      <p className={`text-xs mt-1 leading-relaxed ${theme === 'dark' ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {hp.desc}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className={`text-xs font-mono font-black px-2.5 py-1 rounded-lg border ${
+                        theme === 'dark' 
+                          ? 'bg-slate-950/60 text-indigo-300 border-white/5' 
+                          : 'bg-white text-indigo-700 border-slate-200 shadow-sm'
+                      }`}>
+                        {hp.number}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        hp.type === 'whatsapp' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                      }`}>
+                        {hp.type === 'whatsapp' ? 'WhatsApp direct' : 'Toll-free direct'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <a
+                    href={redirectUrl}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-200 hover:scale-[1.02] self-start sm:self-center flex items-center gap-1.5 shadow-md ${
+                      hp.color === 'emerald' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/10' : hp.color === 'amber' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/10' : 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/10'
+                    }`}
+                  >
+                    {hp.type === 'whatsapp' ? (
+                      <>
+                        <MessageSquare className="w-3.5 h-3.5" /> Message
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-3.5 h-3.5" /> Dial Call
+                      </>
+                    )}
+                  </a>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
       )}

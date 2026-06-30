@@ -209,7 +209,7 @@ export function BlockchainLedger({ theme }: Props) {
                           </div>
                         ))}
 
-                        <div className="grid grid-cols-3 gap-3 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                           {[
                             { label: 'Resolved By', value: record.resolvedBy },
                             { label: 'Nonce (PoW)', value: record.nonce.toLocaleString() },
